@@ -1,6 +1,6 @@
 # Heroku migration plan: ontology, chat, and login services
 
-Status: three-service implementation, local full-dataset verification, and deployment of three Heroku Eco web apps completed. Public frontend and anonymous-access checks passed. External-target backup/import and authenticated production acceptance remain pending: PostgreSQL connections time out from both the workstation and Heroku. Only Heroku Eco web dynos are authorized; no other cloud resource type may be deployed. AWS remains unchanged.
+Status: three-service implementation, local full-dataset verification, and deployment of three Heroku Eco web apps completed. Public frontend and anonymous-access checks passed. The corrected public database endpoint works and its pre-import backup passed a full isolated restore. Import and authenticated production acceptance remain pending because the supplied role cannot create the application schema. Only Heroku Eco web dynos are authorized; no other cloud resource type may be deployed. AWS remains unchanged.
 
 Repository decision: the existing `coa-puroseka` GitHub repository is unchanged. Audited source has been published separately at [coa-puroseka-heroku](https://github.com/02loveslollipop/coa-puroseka-heroku). Publish only reviewed source, infrastructure definitions, and documentation; exclude credentials, datasets, dumps, generated ontology/data artifacts, and operational reports. The separate local working directory is `/home/zerotwo/coa-puroseka-heroku`, initialized with fresh Git history and a remote pointing only to the new repository. Keep its remote separate so publishing it cannot push to the AWS repository by mistake. Both chat and admin repository header links point to the new repository.
 
@@ -18,9 +18,9 @@ Inspection date: 24 October 2026 UTC.
 | Token policy | Enforcement off; preserve usage and configuration |
 | Application hosting | Heroku, with separate ontology, chat, and login applications |
 | Current database target | User-supplied external PostgreSQL endpoint; connection string saved only in ignored local configuration |
-| Target connectivity | DNS resolves; PostgreSQL connections to port 5432 time out from this workstation and an Eco diagnostic on Heroku |
-| Target version, contents, privileges, capacity | Unverified until the external endpoint is reachable |
-| Proposed namespace | One new schema: `coa_puroseka`; availability on the replacement target must be checked |
+| Target connectivity | Corrected public connection works; all three Eco apps have updated database configuration |
+| Target version, contents, privileges, capacity | PostgreSQL 18.4; approximately 8 MB; no application tables; no database CREATE or role-creation permission; storage quota remains provider-specific |
+| Proposed namespace | `coa_puroseka` is unused; owner/admin permission is required before creation |
 
 AWS credentials were refreshed in the local default profile and verified against the existing lab account. Credentials are outside the Git repository. Heroku CLI authentication is now working. The replacement connection string is stored in `.env` as `MIGRATION_DATABASE_URL` and in private deployment state, with owner-only file permissions. Never copy its value into this document or Git.
 
@@ -40,7 +40,7 @@ The private AWS backup set remains under `/home/zerotwo/coa_puroseka/.deploy/bac
 
 AWS dumps also have an encrypted copy in the existing private S3 artifact bucket. Temporary backup compute is separate from the production ECS service. The restore tests use disposable local containers without networking. Source and destination backups are private operational artifacts and must not be committed or pushed.
 
-**Replacement-target backup is pending connectivity.** Before creating even the new schema, connect read-only, inventory existing schemas/tables and privileges, and take a consistent custom-format backup using a compatible PostgreSQL client. Restore it into an isolated scratch database, compare table counts, record checksums, and retain a private share copy. If the provided credential cannot back up all existing application objects, record that limitation and obtain an owner/provider backup before target writes. The earlier Heroku backup cannot substitute for this check.
+**Replacement-target backup is verified.** A fresh custom-format PostgreSQL 18 dump was captured read-only and fully restored in an isolated local container. The existing target has no application tables; its schema/function definitions and monitoring extensions restored successfully. A matching local restore image installs `pg_stat_kcache` and preloads it with `pg_stat_statements`, following the extension maintainer's [installation instructions](https://github.com/powa-team/pg_stat_kcache#installation). This image is local tooling only and is never deployed to Heroku. Checksums and a second private copy are retained on the share; paths and manifests remain ignored. The earlier Heroku backup is separate historical evidence.
 
 These are online snapshots, not the final cutover snapshot. Source data is fixed, but users can still create sessions, jobs, and token-ledger records. Drain jobs and take a final consistent control-state backup immediately before switching traffic.
 
@@ -199,6 +199,6 @@ References: [Heroku pricing](https://www.heroku.com/pricing/), [Eco hours and sl
 | Ontology | https://coa-puroseka-ontology-67399c6329cd.herokuapp.com | One Eco web dyno; zero add-ons |
 | Login | https://coa-puroseka-login-86d7b2fa428b.herokuapp.com | One Eco web dyno; zero add-ons |
 
-The frontend returns HTTP 200; protected anonymous requests return HTTP 401; cross-origin login returns HTTP 403. Database readiness returns HTTP 503 because the target connection times out. A short-lived Eco diagnostic independently confirmed the connection timeout from Heroku and exited. No other dyno class or add-on was provisioned. Only chat has the Mistral key; runtime config contains no AWS credentials or plaintext administrator password.
+The frontend returns HTTP 200; protected anonymous requests return HTTP 401; cross-origin login returns HTTP 403. Database readiness remains HTTP 503 until the application schema is imported. The original connection timeout was resolved by switching to the supplied public port; every runtime service now uses the corrected connection. No other dyno class or add-on was provisioned. Only chat has the Mistral key; runtime config contains no AWS credentials or plaintext administrator password.
 
-Next required input is a working public PostgreSQL endpoint or corrected network access for the supplied endpoint. Then inspect permissions/capacity, back up and restore-check the existing target, import the new schema, and complete authenticated production checks. A reachable frontend is not proof of a completed database migration. Do not redirect users away from AWS or retire it before those checks pass.
+Next required input is an owner/admin grant allowing this account to create the new application schema, or an owner connection stored privately. A password-free grant script is prepared in ignored deployment state. The account can create objects in `public`, but moving application tables there would violate the dedicated-schema requirement, so no target application objects have been created. After permission is available, confirm capacity, import the new schema, and complete authenticated production checks. A reachable frontend is not proof of a completed database migration. Do not redirect users away from AWS or retire it before those checks pass.

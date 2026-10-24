@@ -32,6 +32,37 @@ def backup(url):
         conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         conn.execute("SET LOCAL statement_timeout='120s'")
         major = int(conn.execute("SHOW server_version_num").fetchone()[0]) // 10000
+        extensions = dict(
+            conn.execute("SELECT extname,extversion FROM pg_extension").fetchall()
+        )
+        restore_image = "postgres:" + str(major) + "-alpine"
+        preload = []
+        if "pg_stat_kcache" in extensions:
+            restore_image = "coa-local-backup-postgres:" + str(major)
+            log = ROOT / "artifacts/backup-restore-image.log"
+            with log.open("w") as output:
+                log.chmod(0o600)
+                subprocess.run(
+                    [
+                        "docker",
+                        "build",
+                        "--build-arg",
+                        "PG_MAJOR=" + str(major),
+                        "-f",
+                        str(ROOT / "infra/local-backup.Dockerfile"),
+                        "-t",
+                        restore_image,
+                        str(ROOT),
+                    ],
+                    check=True,
+                    stdout=output,
+                    stderr=subprocess.STDOUT,
+                )
+            preload = [
+                "postgres",
+                "-c",
+                "shared_preload_libraries=pg_stat_statements,pg_stat_kcache",
+            ]
         snapshot = conn.execute("SELECT pg_export_snapshot()").fetchone()[0]
         tables = conn.execute(
             "SELECT schemaname,tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema') AND schemaname NOT LIKE 'pg_toast%' ORDER BY 1,2"
@@ -95,6 +126,8 @@ def backup(url):
             )
         report.update(
             server_major=major,
+            extensions=extensions,
+            restore_image=restore_image,
             table_counts=counts,
             database_bytes=conn.execute(
                 "SELECT pg_database_size(current_database())"
@@ -114,8 +147,9 @@ def backup(url):
                 "--env",
                 "POSTGRES_PASSWORD=local-restore-verification-only",
                 "--detach",
-                image,
-            ],
+                restore_image,
+            ]
+            + preload,
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -124,7 +158,16 @@ def backup(url):
 
         for _ in range(100):
             r = subprocess.run(
-                ["docker", "exec", name, "pg_isready", "-h", "127.0.0.1", "-U", "postgres"],
+                [
+                    "docker",
+                    "exec",
+                    name,
+                    "pg_isready",
+                    "-h",
+                    "127.0.0.1",
+                    "-U",
+                    "postgres",
+                ],
                 capture_output=True,
             )
             if r.returncode == 0:

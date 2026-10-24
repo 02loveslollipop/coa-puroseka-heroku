@@ -2,7 +2,7 @@
 
 Deployed frontend: [chat](https://coa-puroseka-chat-1a5098100731.herokuapp.com/) · [administration](https://coa-puroseka-chat-1a5098100731.herokuapp.com/admin/sources).
 
-**Migration pending database access:** all three apps are deployed on Eco, but the supplied PostgreSQL endpoint times out from both the workstation and Heroku. Login and inference remain unavailable until the existing database is reachable, backed up, and populated. The AWS application has not been changed or shut down.
+**Migration pending schema permission:** all three Eco apps use the corrected public PostgreSQL connection. The existing database has been backed up and fully restore-checked, but the supplied account lacks database CREATE permission for the required new schema. Login and inference remain unavailable until the owner grants that permission and the source data is imported. The AWS application has not been changed or shut down.
 
 Three small services demonstrate a fixed context ontology, semantic enrichment, and NL2SQL over the complete prepared Puroseka dataset. The UI uses Cloudscape components and AI chat patterns. The same `ministral-8b-latest` model supports Base, Enhanced, and A/B comparison, with tool activity, SQL evidence, and administrator Review mode.
 

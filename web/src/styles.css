@@ -1,8 +1,11 @@
 /* Structural sizing for the third-party ontology graph and code viewport.
    Cloudscape components provide typography, spacing, colors, and controls. */
 .ontology-graph {
-  height: 520px;
+  height: clamp(560px, 75dvh, 840px);
 }
+.ontology-concept-label { display: flex; flex-direction: column; justify-content: center; gap: 6px; block-size: 100%; }
+.ontology-concept-label strong { font-size: 16px; line-height: 20px; }
+.ontology-concept-label span { font-size: 13px; line-height: 18px; color: inherit; opacity: 0.8; }
 .code-viewport {
   max-height: 32rem;
   overflow: auto;

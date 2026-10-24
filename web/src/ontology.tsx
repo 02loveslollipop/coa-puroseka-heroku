@@ -16,80 +16,15 @@ import {
   Tabs,
   TextContent,
 } from "@cloudscape-design/components";
-import * as tokens from "@cloudscape-design/design-tokens";
-import { Background, Controls, MarkerType, ReactFlow } from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
 import { Catalog, apiUrl } from "./api";
 import { FieldDefinitions, LoadingState } from "./ui";
+import { OntologyGraph } from "./ontology-graph";
 
 export function Ontology({ catalog }: { catalog: Catalog | null }) {
   const [selected, setSelected] = useState("events");
   if (!catalog) return <LoadingState label="Loading ontology" />;
   const entity = catalog.tables[selected];
   const entries = Object.entries(catalog.tables);
-  const positions: Record<string, [number, number]> = {
-    events: [400, 40],
-    event_cards: [670, 200],
-    cards: [400, 360],
-    characters: [400, 570],
-    gachas: [40, 40],
-    gacha_details: [40, 200],
-    gacha_pickups: [40, 360],
-    gacha_behaviors: [-220, 40],
-    gacha_rarity_rates: [-220, 200],
-    card_parameters: [670, 360],
-    card_training_costs: [670, 510],
-    card_master_resources: [670, 660],
-    event_reward_ranges: [950, 40],
-    event_rewards: [950, 200],
-    entity_labels: [40, 570],
-    ranking_observations: [400, -140],
-  };
-  const nodes = entries.map(([id, e], index) => ({
-    id,
-    data: {
-      label: (
-        <SpaceBetween size="xxs">
-          <Box variant="strong">{e.label}</Box>
-          <Box color="text-body-secondary" fontSize="body-s">
-            {id}
-          </Box>
-        </SpaceBetween>
-      ),
-    },
-    position: {
-      x: positions[id]?.[0] ?? index * 190,
-      y: positions[id]?.[1] ?? 700,
-    },
-    style: {
-      width: 200,
-      padding: tokens.spaceScaledM,
-      color: tokens.colorTextBodyDefault,
-      background: tokens.colorBackgroundContainerContent,
-      borderColor:
-        selected === id
-          ? tokens.colorBorderItemFocused
-          : tokens.colorBorderContainerTop,
-      borderWidth: selected === id ? 2 : 1,
-      borderRadius: tokens.borderRadiusContainer,
-    },
-  }));
-  const edges = catalog.relationships.map((relation, index) => ({
-    id: String(index),
-    source: relation.source,
-    target: relation.target,
-    label: relation.name,
-    markerEnd: { type: MarkerType.ArrowClosed },
-    style: {
-      stroke:
-        relation.status === "validated"
-          ? tokens.colorTextBodySecondary
-          : tokens.colorTextStatusWarning,
-    },
-    labelStyle: { fontSize: 12, fill: tokens.colorTextBodyDefault },
-    labelBgStyle: { fill: tokens.colorBackgroundContainerContent },
-    labelBgPadding: [4, 3] as [number, number],
-  }));
   return (
     <ContentLayout
       header={
@@ -111,7 +46,7 @@ export function Ontology({ catalog }: { catalog: Catalog | null }) {
           header={
             <Header
               variant="h2"
-              description="Select a concept to inspect its definition and relationships."
+              description="Drag concepts to rearrange the diagram; select one to inspect its definition and relationships."
             >
               Entity relationships
             </Header>
@@ -126,20 +61,7 @@ export function Ontology({ catalog }: { catalog: Catalog | null }) {
             ]}
           />
           <Box margin={{ top: "l" }}>
-            <div className="ontology-graph">
-              <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                fitView
-                minZoom={0.2}
-                onNodeClick={(_, node) => setSelected(node.id)}
-                nodesDraggable={false}
-                aria-label="Ontology entity relationships"
-              >
-                <Background />
-                <Controls showInteractive={false} />
-              </ReactFlow>
-            </div>
+            <OntologyGraph catalog={catalog} selected={selected} onSelect={setSelected} />
           </Box>
         </Container>
         <Container header={<Header variant="h2">{entity.label}</Header>}>

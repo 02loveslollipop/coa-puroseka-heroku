@@ -1,0 +1,27 @@
+[
+  {
+    "question": "Compare the last observed competition score at rank 100 for events 1 and 2.",
+    "sql": "WITH endpoints AS (SELECT DISTINCT ON (r.event_id, r.rank) r.event_id, r.rank, r.score, r.observed_at, e.name, to_timestamp(e.aggregate_at / 1000.0) AS competition_end FROM data.ranking_observations r JOIN data.events e ON e.id = r.event_id WHERE r.event_id IN (1, 2) AND r.rank = 100 AND r.observed_at >= to_timestamp(e.start_at / 1000.0) AND r.observed_at <= to_timestamp(e.aggregate_at / 1000.0) ORDER BY r.event_id, r.rank, r.observed_at DESC, r.row_key DESC) SELECT * FROM endpoints ORDER BY event_id",
+    "note": "Return observation times and competition boundaries. These are last observed scores, not guaranteed official final cutoffs."
+  },
+  {
+    "question": "Show the daily score evolution at rank 100 in event 1.",
+    "sql": "WITH daily AS (SELECT DISTINCT ON (r.event_id, r.rank, (r.observed_at AT TIME ZONE 'UTC')::date) r.event_id, r.rank, (r.observed_at AT TIME ZONE 'UTC')::date AS utc_day, r.score AS last_observed_score, r.observed_at FROM data.ranking_observations r JOIN data.events e ON e.id = r.event_id WHERE r.event_id = 1 AND r.rank = 100 AND r.observed_at >= to_timestamp(e.start_at / 1000.0) AND r.observed_at <= to_timestamp(e.aggregate_at / 1000.0) ORDER BY r.event_id, r.rank, (r.observed_at AT TIME ZONE 'UTC')::date, r.observed_at DESC, r.row_key DESC), changes AS (SELECT *, last_observed_score - lag(last_observed_score) OVER (PARTITION BY event_id, rank ORDER BY utc_day) AS score_change_since_previous_observed_day, utc_day - lag(utc_day) OVER (PARTITION BY event_id, rank ORDER BY utc_day) AS elapsed_calendar_days FROM daily) SELECT * FROM changes ORDER BY utc_day",
+    "note": "Calendar days are UTC. The first change is NULL, missing days are not zero, and elapsed_calendar_days discloses gaps."
+  },
+  {
+    "question": "Compare rank 100 progression in events 1 and 2 by elapsed event day.",
+    "sql": "WITH aligned AS (SELECT r.event_id, r.rank, r.score, r.observed_at, r.row_key, floor(extract(epoch FROM (r.observed_at - to_timestamp(e.start_at / 1000.0))) / 86400)::int + 1 AS event_day FROM data.ranking_observations r JOIN data.events e ON e.id = r.event_id WHERE r.event_id IN (1, 2) AND r.rank = 100 AND r.observed_at >= to_timestamp(e.start_at / 1000.0) AND r.observed_at <= to_timestamp(e.aggregate_at / 1000.0)) SELECT DISTINCT ON (event_id, rank, event_day) event_id, rank, event_day, score AS last_observed_score, observed_at FROM aligned ORDER BY event_id, rank, event_day, observed_at DESC, row_key DESC",
+    "note": "Each day is a 24-hour interval since that event's start. Event day 1 begins at start_at, not UTC midnight."
+  },
+  {
+    "question": "Which characters have cards explicitly associated with event 1?",
+    "sql": "SELECT DISTINCT c.id AS character_id, c.first_name_english, c.given_name_english FROM data.event_cards ec JOIN data.cards card ON card.id = ec.card_id JOIN data.characters c ON c.id = card.character_id WHERE ec.event_id = 1 ORDER BY c.id",
+    "note": "Association does not establish a positive bonus or pickup status."
+  },
+  {
+    "question": "How many distinct cards are listed in each of the first five gachas?",
+    "sql": "SELECT g.id, g.name, count(DISTINCT d.card_id) AS listed_card_count FROM data.gachas g LEFT JOIN data.gacha_details d ON d.parent_id = g.id WHERE g.id IN (SELECT id FROM data.gachas ORDER BY id LIMIT 5) GROUP BY g.id, g.name ORDER BY g.id",
+    "note": "The listed pool is distinct from the pickup set; never infer probability from membership."
+  }
+]

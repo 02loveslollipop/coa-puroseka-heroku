@@ -1,0 +1,6 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+[tool.ruff.lint.per-file-ignores]
+# Operator scripts add the repository root before importing the application.
+"scripts/*.py" = ["E402"]
+"tests/test_integration.py" = ["E402"]

@@ -1,0 +1,17 @@
+*
+!Dockerfile
+!requirements.txt
+!app/
+!app/**
+!services/
+!services/**
+!shared/
+!shared/**
+!infra/
+!infra/heroku/
+!infra/heroku/start.py
+!web/
+!web/**
+web/node_modules
+web/dist
+**/__pycache__

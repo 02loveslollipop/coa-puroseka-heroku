@@ -1,0 +1,32 @@
+{
+  "name": "puroseka-semantic-context",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc && vite build",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@cloudscape-design/chat-components": "1.0.182",
+    "@cloudscape-design/code-view": "3.0.188",
+    "@cloudscape-design/collection-hooks": "1.0.110",
+    "@cloudscape-design/components": "3.0.1404",
+    "@cloudscape-design/design-tokens": "3.0.116",
+    "@cloudscape-design/global-styles": "^1.0.0",
+    "@xyflow/react": "^12.11.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^6.28.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "typescript": "^5.6.0",
+    "vite": "^6.4.3"
+  }
+}

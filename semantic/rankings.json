@@ -1,0 +1,27 @@
+{
+  "class": "RankingObservation",
+  "label": "Ranking observation",
+  "definition": "A historical observation of the score occupying a particular rank in a particular event at observed_at. This is a rank-position time series; the occupying player can change. It is neither a player's cumulative history nor a live or guaranteed final cutoff.",
+  "aliases": ["ranking history", "score over time", "rank border", "cutoff observation", "daily progression"],
+  "fields": {
+    "row_key": {"type": "text", "definition": "Unique source file / array index provenance path. For duplicate timestamps use this as a deterministic tie-breaker, not a claim of later observation."},
+    "event_id": {"type": "bigint", "definition": "Foreign key to events.id identifying the competition."},
+    "rank": {"type": "bigint", "definition": "Observed leaderboard position, such as 1, 100, or 1000. Compare the same rank across events unless the question explicitly asks otherwise."},
+    "score": {"type": "bigint", "definition": "Cumulative event points observed at this rank and time. Not a daily increment or count of participants. Score differences can be negative due to data corrections or ranking changes; do not force monotonicity."},
+    "observed_at": {"type": "timestamp with time zone", "definition": "UTC observation timestamp already stored as PostgreSQL timestamptz. Do NOT divide this timestamp by 1000; only metadata *_at bigint fields are epoch milliseconds."},
+    "user_id": {"type": "text", "definition": "Source player identifier occupying this position at this observation; can change within a series. Preserve as text."},
+    "leader_card_id": {"type": "bigint", "definition": "Source userCard.cardId, when supplied. This is the player's displayed leader card, not proof of an event-associated or bonus card."},
+    "source_file": {"type": "text", "definition": "Original event/rank source path relative to event_rank_snapshots."},
+    "raw_record": {"type": "jsonb", "definition": "The complete original ranking observation, preserving nested profile and card data."}
+  },
+  "rules": [
+    "Ranking observations are historical snapshots, never current scores. The last observed score is not guaranteed to be the official final score.",
+    "For daily evolution default to UTC calendar days, explicitly label the convention, and use the latest available observation per event/rank/day. Missing days are absent observations, not zero scores.",
+    "Daily score change is the difference between consecutive observed daily endpoints. If endpoints are not on adjacent calendar days, label the elapsed gap; do not call it a one-day gain. The first observed endpoint has no measured prior-day gain.",
+    "For event progression comparisons align by elapsed 24-hour event day: floor(extract(epoch from (observed_at - to_timestamp(events.start_at / 1000.0))) / 86400) + 1. State the alignment and compare the same rank.",
+    "For in-competition analyses filter observed_at >= to_timestamp(events.start_at / 1000.0) AND observed_at <= to_timestamp(events.aggregate_at / 1000.0). Source data outside that window remains preserved and can be inspected separately.",
+    "When selecting a latest observation use observed_at DESC, row_key DESC as deterministic ordering. Duplicate timestamp source rows are retained; row_key resolves ties without implying a later timestamp.",
+    "For a final-cutoff comparison select the latest available in-competition observation for the requested rank, return its timestamp and the event aggregation boundary, and describe it as last observed, not official final.",
+    "Do not infer participant totals, player effort, causal difficulty, popularity, or official drop probabilities from ranking-position scores alone."
+  ]
+}

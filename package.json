@@ -1,0 +1,7 @@
+{
+  "name": "coa-puroseka-heroku",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {"node": "22.x"},
+  "scripts": {"heroku-postbuild": "npm --prefix web ci --include=dev --no-audit --no-fund && npm --prefix web run build"}
+}

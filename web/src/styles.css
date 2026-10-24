@@ -1,0 +1,24 @@
+/* Structural sizing for the third-party ontology graph and code viewport.
+   Cloudscape components provide typography, spacing, colors, and controls. */
+.ontology-graph {
+  height: 520px;
+}
+.code-viewport {
+  max-height: 32rem;
+  overflow: auto;
+}
+.login-page { min-height: 100dvh; display: grid; place-items: center; padding: 24px; box-sizing: border-box; }
+.login-card { width: min(100%, 460px); }
+.chat-workspace { height: calc(100dvh - var(--chat-top-offset, 57px)); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
+.chat-heading { padding: 20px 32px 12px; }
+.conversation-log { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 24px 32px; }
+.conversation-width { width: 100%; max-width: 960px; margin: 0 auto; }
+.chat-composer { padding: 16px 32px 20px; }
+@media (max-width: 760px) {
+  .ontology-graph {
+    height: 400px;
+  }
+  .chat-heading { padding: 16px; }
+  .conversation-log { padding: 16px; }
+  .chat-composer { padding: 12px 16px; }
+}

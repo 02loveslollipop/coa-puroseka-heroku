@@ -1,0 +1,24 @@
+{
+  "name": "COA Puroseka microservice",
+  "description": "One COA service; existing external PostgreSQL only. Eco dynos only.",
+  "repository": "https://github.com/02loveslollipop/coa-puroseka-heroku",
+  "stack": "heroku-24",
+  "addons": [],
+  "buildpacks": [{"url": "heroku/nodejs"}, {"url": "heroku/python"}],
+  "formation": {"web": {"quantity": 1, "size": "eco"}},
+  "env": {
+    "COA_SERVICE": {"value": "chat"},
+    "DATA_SCHEMA": {"value": "coa_puroseka"},
+    "ARTIFACT_STORE": {"value": "database"},
+    "DATABASE_URL": {"required": false},
+    "CONTROL_DATABASE_URL": {"required": false},
+    "LOGIN_SERVICE_URL": {"required": false},
+    "LOGIN_SERVICE_TOKEN": {"required": false},
+    "ONTOLOGY_SERVICE_URL": {"required": false},
+    "ONTOLOGY_SERVICE_TOKEN": {"required": false},
+    "PUBLIC_ORIGIN": {"required": false},
+    "MISTRAL_API_KEY": {"required": false},
+    "MISTRAL_MODEL": {"value": "ministral-8b-latest"},
+    "SEMANTIC_VERSION": {"value": "puroseka-1.1.0"}
+  }
+}

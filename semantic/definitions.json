@@ -1,0 +1,48 @@
+{
+  "version": "puroseka-1.0.0",
+  "namespace": "https://puroseka.example/ontology/",
+  "description": "A fixed, source-grounded ontology of the supplied Project SEKAI metadata. Relationships describe source associations, not eligibility, ownership, or historical availability guarantees.",
+  "entities": {
+    "events": {"class": "Event", "label": "Event", "definition": "An event in the supplied game metadata. Its competition window starts at start_at and ends at aggregate_at; closed_at is a later lifecycle boundary, not the competition end.", "aliases": ["event", "competition"], "fields": {"event_type": "Source event category, for example marathon. Do not translate marathon into real-world distance.", "start_at": "Competition start as Unix epoch milliseconds (UTC).", "aggregate_at": "Competition aggregation boundary as Unix epoch milliseconds (UTC).", "closed_at": "Source lifecycle closure timestamp in epoch milliseconds; not the competition end.", "unit": "Source unit enum. The value none means no unit is specified; do not infer a unit from an event title."}},
+    "cards": {"class": "Card", "label": "Card", "definition": "A collectible card definition, not an individual user's owned card. Linked to its character by character_id.", "aliases": ["card", "collectible"], "fields": {"prefix": "Original Japanese card title/prefix, preserved verbatim.", "attr": "Card attribute enum: cool, cute, happy, mysterious, or pure. This is a game attribute, not a personality inference.", "card_rarity_type": "Source rarity category. rarity_1 through rarity_4 denote star categories; rarity_birthday is a separate category, not five stars.", "release_at": "Source release timestamp in Unix epoch milliseconds (UTC).", "support_unit": "Support-unit source enum; none denotes unspecified support affiliation."}},
+    "characters": {"class": "Character", "label": "Character", "definition": "A game character. The original file is named chracters.json. Display Japanese names as first_name followed by given_name, and English names from the supplied English fields.", "aliases": ["character", "member"], "fields": {"first_name": "Japanese family-name component where supplied.", "given_name": "Japanese given-name component.", "first_name_english": "Source-supplied English family-name component; this is not generated translation.", "given_name_english": "Source-supplied English given-name component.", "unit": "Source unit affiliation enum. Preserve the enum; friendly labels are aliases only.", "height": "Character height in centimeters, interpreted from the source field; no biological inference is implied."}},
+    "event_cards": {"class": "EventCardAssociation", "label": "Event–card association", "definition": "An explicit source association between an event and a card. Membership alone does not establish that the card is a pickup, is obtainable in that event, or grants a positive bonus.", "aliases": ["event card", "event association"], "fields": {"bonus_rate": "Source bonus-rate value, retained without inventing percentage or stacking semantics.", "leader_bonus_rate": "Source leader-bonus-rate value, retained without inventing stacking semantics."}},
+    "gachas": {"class": "Gacha", "label": "Gacha", "definition": "A source gacha/banner definition. Its details identify the listed card pool, while pickups identify explicitly marked pickup cards. Time overlap with an event does not establish an event-specific gacha link.", "aliases": ["gacha", "banner", "draw pool"], "fields": {"start_at": "Gacha start timestamp in Unix epoch milliseconds (UTC).", "end_at": "Gacha end timestamp in Unix epoch milliseconds (UTC).", "name": "Original Japanese source banner name."}}
+  },
+  "collections": {
+    "gacha_details": ["GachaCardPoolEntry", "A card listed in a gacha pool. weight is a source weight, not a complete probability; do not compute drop rates from weight alone."],
+    "gacha_pickups": ["GachaPickup", "A card explicitly marked as a gacha pickup in the source."],
+    "gacha_behaviors": ["GachaBehavior", "A source draw behavior, including draw counts, costs and execution limits."],
+    "gacha_rarity_rates": ["GachaRarityRate", "A source rarity/lottery rate row scoped to its parent gacha. A rate for a rarity is not an individual card's drop rate."],
+    "card_parameters": ["CardParameter", "A source card statistic at a specific card_level and card_parameter_type; power is that component's value, not automatically total team power."],
+    "card_training_costs": ["CardTrainingCost", "A source special-training cost entry. Nested costs remain available in raw_record."],
+    "card_master_resources": ["CardMasterResource", "A source master-rank resource requirement entry. Resource structures remain available in raw_record."],
+    "event_reward_ranges": ["EventRewardRange", "A source event ranking reward interval, with inclusive from_rank and to_rank boundaries."],
+    "event_rewards": ["EventReward", "A source reward entry associated with an event reward range. Resource box identifiers are opaque when their definition is absent."]
+  },
+  "relationships": [
+    ["cards", "character_id", "characters", "id", "depicts", "A card depicts the referenced character."],
+    ["event_cards", "event_id", "events", "id", "associatedEvent", "Explicit event membership from eventCards.json."],
+    ["event_cards", "card_id", "cards", "id", "associatedCard", "Explicit card membership from eventCards.json; not proof of a positive event bonus."],
+    ["gacha_details", "parent_id", "gachas", "id", "poolOf", "This card-pool entry belongs to the parent gacha."],
+    ["gacha_details", "card_id", "cards", "id", "poolCard", "Card listed in the gacha pool; not necessarily a pickup."],
+    ["gacha_pickups", "parent_id", "gachas", "id", "pickupOf", "Explicit pickup entry belonging to the parent gacha."],
+    ["gacha_pickups", "card_id", "cards", "id", "pickupCard", "Explicit source pickup-card reference."],
+    ["gacha_behaviors", "parent_id", "gachas", "id", "behaviorOf", "Draw behavior scoped to its parent gacha."],
+    ["gacha_rarity_rates", "parent_id", "gachas", "id", "rateOf", "Rarity rate scoped to the containing gacha, regardless of reused group IDs."],
+    ["card_parameters", "parent_id", "cards", "id", "parameterOf", "Statistic row scoped to its parent card."],
+    ["card_training_costs", "parent_id", "cards", "id", "trainingCostOf", "Cost row scoped to its parent card."],
+    ["card_master_resources", "parent_id", "cards", "id", "masterResourceOf", "Master resource row scoped to its parent card."],
+    ["event_reward_ranges", "parent_id", "events", "id", "rewardRangeOf", "Ranking reward range scoped to its parent event."],
+    ["event_rewards", "parent_id", "event_reward_ranges", "row_key", "rewardOf", "Reward entry scoped to its containing ranking reward range."]
+  ],
+  "rules": [
+    "Dataset coverage is the supplied snapshot, not the live game. Never claim current availability.",
+    "Use DISTINCT when counting cards across many-to-many event or gacha associations.",
+    "Preserve source enum values, zero bonuses, nulls, and none values. None is not evidence of membership in a particular unit.",
+    "Convert epoch milliseconds using to_timestamp(value / 1000.0) AT TIME ZONE 'UTC'.",
+    "Source IDs for skills, resource boxes and other absent entity files remain opaque references; do not fabricate their descriptions.",
+    "Generated translations are convenience labels, never canonical English game localization.",
+    "Translate questions into queries only when the available data can support them; otherwise explain the missing information."
+  ]
+}

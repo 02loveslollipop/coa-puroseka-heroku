@@ -148,3 +148,58 @@ def test_existing_namespace_is_never_adopted_or_reset(databases):
         )
     with psycopg.connect(target) as c:
         assert c.execute("SELECT value FROM coa_test.sentinel").fetchone()[0] == 7
+
+
+def test_admin_import_grants_runtime_reads_without_source_writes(databases):
+    source, target, artifacts = databases
+    role = "coa_runtime_test_" + uuid4().hex[:10]
+    with psycopg.connect(target) as owner:
+        owner.execute(
+            sql.SQL("CREATE ROLE {} LOGIN PASSWORD {}").format(
+                sql.Identifier(role), sql.Literal("local-runtime-test-only")
+            )
+        )
+    try:
+        report = migrate(
+            source,
+            target,
+            "coa_test",
+            artifacts,
+            "demo@example.test",
+            "local-test-password-only",
+            runtime_role=role,
+        )
+        assert report["runtime_source_write_access"] is False
+        runtime = psycopg.conninfo.make_conninfo(
+            target, user=role, password="local-runtime-test-only"
+        )
+        with psycopg.connect(runtime) as c:
+            assert c.execute("SELECT count(*) FROM coa_test.events").fetchone()[0] == 1
+            assert (
+                c.execute(
+                    "SELECT has_table_privilege('coa_test.events','INSERT')"
+                ).fetchone()[0]
+                is False
+            )
+            assert (
+                c.execute(
+                    "SELECT has_table_privilege('coa_test.auth_accounts','UPDATE')"
+                ).fetchone()[0]
+                is False
+            )
+            assert (
+                c.execute(
+                    "SELECT has_schema_privilege('coa_test','CREATE')"
+                ).fetchone()[0]
+                is False
+            )
+            c.execute(
+                "INSERT INTO coa_test.auth_login_attempts VALUES('test-key',1,now())"
+            )
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            with psycopg.connect(runtime) as c:
+                c.execute("INSERT INTO coa_test.events VALUES('bad',2,'{}')")
+    finally:
+        with psycopg.connect(target) as owner:
+            owner.execute(sql.SQL("DROP OWNED BY {}").format(sql.Identifier(role)))
+            owner.execute(sql.SQL("DROP ROLE {}").format(sql.Identifier(role)))

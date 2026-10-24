@@ -33,16 +33,68 @@ ARTIFACT_NAMES = [
 def fingerprint(conn, schema, table):
     digest = hashlib.sha256()
     with conn.cursor().copy(
-        sql.SQL("COPY (SELECT * FROM {}.{} ORDER BY row_key) TO STDOUT").format(
-            sql.Identifier(schema), sql.Identifier(table)
-        )
+        sql.SQL(
+            'COPY (SELECT * FROM {}.{} ORDER BY row_key COLLATE "C") TO STDOUT'
+        ).format(sql.Identifier(schema), sql.Identifier(table))
     ) as copy:
         for block in copy:
             digest.update(block)
     return digest.hexdigest()
 
 
-def migrate(source_url, target_url, schema, artifacts, username, password):
+def grant_runtime_access(conn, schema, tables, role):
+    """Keep provisioning ownership separate from the existing runtime credential."""
+    conn.execute(
+        sql.SQL("REVOKE ALL ON ALL TABLES IN SCHEMA {} FROM PUBLIC").format(
+            sql.Identifier(schema)
+        )
+    )
+    conn.execute(
+        sql.SQL("REVOKE ALL ON ALL TABLES IN SCHEMA {} FROM {}").format(
+            sql.Identifier(schema), sql.Identifier(role)
+        )
+    )
+    conn.execute(
+        sql.SQL("GRANT USAGE ON SCHEMA {} TO {}").format(
+            sql.Identifier(schema), sql.Identifier(role)
+        )
+    )
+    reads = list(tables) + ["auth_accounts", "ontology_versions", "ontology_examples"]
+    writes = [
+        "auth_sessions",
+        "auth_login_attempts",
+        "chat_policies",
+        "chat_budgets",
+        "chat_reservations",
+        "chat_jobs",
+    ]
+    for names, permissions in [
+        (reads, "SELECT"),
+        (writes, "SELECT, INSERT, UPDATE, DELETE"),
+    ]:
+        for table in names:
+            conn.execute(
+                sql.SQL("GRANT {} ON TABLE {}.{} TO {}").format(
+                    sql.SQL(permissions),
+                    sql.Identifier(schema),
+                    sql.Identifier(table),
+                    sql.Identifier(role),
+                )
+            )
+    for table in tables:
+        allowed = conn.execute(
+            "SELECT has_table_privilege(%s,%s,'INSERT,UPDATE,DELETE,TRUNCATE')",
+            (role, schema + "." + table),
+        ).fetchone()
+        if allowed["has_table_privilege"]:
+            raise ValueError(
+                "Runtime credential inherits unexpected source write access"
+            )
+
+
+def migrate(
+    source_url, target_url, schema, artifacts, username, password, runtime_role=None
+):
     if (
         not re.fullmatch(r"[a-z_][a-z0-9_]{0,62}", schema)
         or schema in {"public", "data", "control"}
@@ -303,6 +355,9 @@ def migrate(source_url, target_url, schema, artifacts, username, password):
         report["usage_ledger_preserved"] = True
         report["version"] = catalog["version"]
         report["completed_at"] = datetime.now(timezone.utc).isoformat()
+        if runtime_role:
+            grant_runtime_access(target, schema, tables, runtime_role)
+            report["runtime_source_write_access"] = False
         target.execute(
             sql.SQL(
                 "INSERT INTO {}.migration_ledger(version,report) VALUES(%s,%s)"
@@ -323,10 +378,21 @@ def main():
 
     load_dotenv(Path(__file__).resolve().parents[1] / ".env")
     try:
-        from urllib.parse import urlsplit
+        from urllib.parse import urlsplit, unquote
 
         target_url = os.environ["MIGRATION_DATABASE_URL"]
-        if urlsplit(target_url).hostname not in {"127.0.0.1", "localhost"}:
+        operator_url = os.environ.get("MIGRATION_ADMIN_DATABASE_URL") or target_url
+        runtime = urlsplit(target_url)
+        operator = urlsplit(operator_url)
+        if (operator.hostname, operator.port or 5432, operator.path) != (
+            runtime.hostname,
+            runtime.port or 5432,
+            runtime.path,
+        ):
+            raise ValueError(
+                "Admin and runtime connections must target the same database"
+            )
+        if runtime.hostname not in {"127.0.0.1", "localhost"}:
             backup_path = (
                 Path(__file__).resolve().parents[1]
                 / ".deploy/target-backup-current.json"
@@ -345,11 +411,14 @@ def main():
                 raise ValueError("A current verified backup of this target is required")
         report = migrate(
             os.environ["SOURCE_DATABASE_URL"],
-            target_url,
+            operator_url,
             os.getenv("DATA_SCHEMA", "coa_puroseka"),
             Path(os.environ["SOURCE_ARTIFACT_DIR"]),
             os.environ["ADMIN_USERNAME"].strip().lower(),
             os.environ["ADMIN_PASSWORD"],
+            runtime_role=unquote(runtime.username)
+            if operator_url != target_url
+            else None,
         )
     except Exception as exc:
         print(

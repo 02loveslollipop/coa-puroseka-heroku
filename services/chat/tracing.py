@@ -66,13 +66,13 @@ def finish(entry, output, status="ok"):
 
 
 async def tool(name, inputs, function, *args):
-    from app.query import QueryRejected
+    from shared.query_errors import QueryError, QueryRejected
 
     entry = start("tool", name, inputs)
     await publish()
     try:
         output = await asyncio.to_thread(function, *args)
-    except QueryRejected as exc:
+    except (QueryRejected, QueryError) as exc:
         finish(entry, {"error": str(exc)}, "error")
         await publish()
         raise

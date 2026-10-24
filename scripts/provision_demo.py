@@ -10,7 +10,7 @@ from psycopg import sql
 from dotenv import dotenv_values
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from app.local_auth import password_hash
+from services.login.accounts import password_hash
 from scripts.audit_publication import configured_secrets
 
 ROOT = Path(__file__).resolve().parents[1]

@@ -3,7 +3,8 @@
 from contextvars import ContextVar
 import httpx
 from fastapi import HTTPException
-from app.config import settings
+from shared.config import settings
+from shared.query_errors import QueryError, QueryRejected
 
 session_token = ContextVar("service_session", default="")
 
@@ -39,6 +40,23 @@ def call(service, method, path, *, body=None, token=None, raw=False):
             detail = response.json().get("detail", detail)
         except ValueError:
             pass
+        if (
+            service == "ontology"
+            and path == "/internal/query"
+            and isinstance(detail, dict)
+        ):
+            message = detail.get("message")
+            if isinstance(message, str) and len(message) <= 500:
+                if (
+                    response.status_code == 422
+                    and detail.get("code") == "invalid_query"
+                ):
+                    raise QueryError(message)
+                if (
+                    response.status_code == 400
+                    and detail.get("code") == "query_rejected"
+                ):
+                    raise QueryRejected(message)
         raise HTTPException(
             response.status_code if response.status_code < 500 else 503,
             detail,

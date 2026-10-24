@@ -5,11 +5,13 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from psycopg import sql
 from psycopg import Error as DatabaseError
-from app.config import artifact
-from app.database import connection, physical_schema, preview, schema_name
-from app.query import execute_query, QueryRejected
+from shared.config import artifact
+from shared.database import connection, schema_name
+from services.ontology.catalog import physical_schema, preview
+from services.ontology.query import execute_query, QueryRejected
 from shared.security import require_service, headers, database_unavailable
 from shared.rpc import call
+from shared.query_errors import query_diagnostic
 
 app = FastAPI(
     title="COA ontology service", docs_url=None, redoc_url=None, openapi_url=None
@@ -60,7 +62,21 @@ def query(body: Query):
     try:
         return execute_query(body.sql, set(physical_schema()))
     except QueryRejected as exc:
-        raise HTTPException(400, str(exc)) from None
+        raise HTTPException(
+            400, {"code": "query_rejected", "message": str(exc)}
+        ) from None
+    except DatabaseError as exc:
+        if exc.sqlstate == "57014":
+            raise HTTPException(
+                408,
+                "The query exceeded the 15-second database limit. Narrow the event or rank range and try again.",
+            ) from None
+        diagnostic = query_diagnostic(exc)
+        if diagnostic:
+            raise HTTPException(
+                422, {"code": "invalid_query", "message": diagnostic}
+            ) from None
+        raise
 
 
 @app.get("/api/schema", dependencies=[Depends(admin)])

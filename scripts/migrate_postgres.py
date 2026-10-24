@@ -18,7 +18,7 @@ from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from sqlglot import parse_one, exp
-from app.local_auth import password_hash
+from services.login.accounts import password_hash
 
 ARTIFACT_NAMES = [
     "catalog.json",
@@ -220,6 +220,15 @@ def migrate(
                 if idx["predicate"]:
                     stmt += sql.SQL(" WHERE ") + sql.SQL(idx["predicate"])
                 target.execute(stmt)
+            if table == "ranking_observations":
+                # The full daily-gap query needs a covering index rather than
+                # reading the preserved raw JSON pages for every observation.
+                target.execute(
+                    sql.SQL(
+                        "CREATE INDEX IF NOT EXISTS ranking_daily_endpoints_idx ON {}.ranking_observations "
+                        "(event_id,rank,((observed_at AT TIME ZONE 'UTC')::date),observed_at DESC,row_key DESC) INCLUDE(score)"
+                    ).format(sql.Identifier(schema))
+                )
             count = source.execute(
                 sql.SQL("SELECT count(*) AS n FROM data.{}").format(
                     sql.Identifier(table)
@@ -349,7 +358,9 @@ def migrate(
         if before != after:
             raise ValueError("Unrelated database objects changed")
         report["unrelated_objects_preserved"] = True
-        report["few_shots_verified"] = 5
+        report["few_shots_verified"] = len(
+            json.loads((artifacts / "few_shots.json").read_text())
+        )
         report["source_accounts"] = len(accounts)
         report["token_enforcement"] = False
         report["usage_ledger_preserved"] = True

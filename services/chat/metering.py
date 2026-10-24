@@ -1,8 +1,8 @@
 """Meter every model call within an authenticated request, including synthesis."""
 
 from contextvars import ContextVar
-from app.config import settings
-from app.tokenization import prompt_tokens
+from shared.config import settings
+from services.chat.tokenization import prompt_tokens
 
 principal = ContextVar("metered_principal", default=None)
 

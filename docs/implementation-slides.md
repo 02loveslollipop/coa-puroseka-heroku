@@ -89,7 +89,7 @@ Question + context → Mistral generates SQL → SQL validation
 
 | No enhancement | Enhanced |
 |---|---|
-| Physical database schema | Schema + ontology definitions + relationships + rules + coverage + matching labels + five NL2SQL examples |
+| Physical database schema | Schema + ontology definitions + relationships + rules + coverage + matching labels + six NL2SQL examples |
 
 **Example question:**
 
@@ -132,9 +132,9 @@ API Gateway → VPC Link → Internal ALB → ECS Fargate / FastAPI
 Use screenshots of the ontology explorer and an A/B response as supporting visuals.
 
 - [Public implementation repository](https://github.com/02loveslollipop/coa-puroseka)
-- [Ontology definitions](../semantic/definitions.json)
-- [Ranking semantics](../semantic/rankings.json)
-- [Five curated NL2SQL examples](../semantic/few_shots.json)
+- [Ontology definitions](../services/ontology/semantic/definitions.json)
+- [Ranking semantics](../services/ontology/semantic/rankings.json)
+- [Six curated NL2SQL examples](../services/ontology/semantic/few_shots.json)
 - [User chat and implementation details](user-chat.md)
 
 Source datasets and generated artifacts remain outside the public repository. This outline includes schema descriptions, aggregate counts and illustrative column examples for presentation purposes.

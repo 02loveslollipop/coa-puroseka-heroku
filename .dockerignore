@@ -1,13 +1,10 @@
 *
-!Dockerfile
-!requirements.txt
-!app/
-!app/**
-!services/
-!services/**
 !shared/
 !shared/**
+!services/
+!services/**
 !infra/
+!infra/Dockerfile
 !infra/heroku/
 !infra/heroku/start.py
 **/__pycache__

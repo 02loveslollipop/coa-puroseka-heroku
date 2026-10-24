@@ -1,0 +1,3 @@
+-r ../../shared/requirements.txt
+sqlglot==29.0.1
+rdflib==7.6.0

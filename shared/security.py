@@ -3,7 +3,7 @@
 import hmac
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
-from app.config import settings
+from shared.config import settings
 
 
 async def database_unavailable(request, exc):

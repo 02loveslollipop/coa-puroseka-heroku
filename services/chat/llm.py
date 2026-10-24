@@ -1,9 +1,9 @@
 import asyncio
 import time
 import httpx
-from app.config import settings
-from app import control, tracing
-from app.metering import principal, reservation_size
+from shared.config import settings
+from services.chat import control, tracing
+from services.chat.metering import principal, reservation_size
 
 _lock = asyncio.Lock()
 _last_call = 0.0
@@ -105,5 +105,10 @@ async def _request(payload, key, record_usage):
                 total = usage.get("total_tokens")
                 if isinstance(total, int) and total >= 0:
                     record_usage(total)
-                return d["choices"][0]["message"]["content"], d.get("usage", {})
+                choice = d["choices"][0]
+                if choice.get("finish_reason") == "length":
+                    raise ModelError(
+                        "The model exceeded its response length. Try a more focused question."
+                    )
+                return choice["message"]["content"], usage
     raise ModelError("Mistral did not return a completion.")

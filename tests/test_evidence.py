@@ -1,6 +1,6 @@
 """Ranking narrative must preserve numeric order and observed coverage."""
 
-from app.evidence import ranking_answer, is_ranking_query
+from services.chat.evidence import ranking_answer, is_ranking_query
 
 
 def test_score_comparison_cannot_reverse_numeric_order():
@@ -67,8 +67,8 @@ def test_no_comparison_of_different_ranks_or_duplicate_endpoints():
 
 def test_ranking_response_uses_only_one_model_call(monkeypatch):
     import asyncio
-    from app.inference import infer
-    from app import tracing
+    from services.chat.inference import infer
+    from services.chat import tracing
 
     calls = []
 
@@ -94,8 +94,8 @@ def test_ranking_response_uses_only_one_model_call(monkeypatch):
             {"total_tokens": 10},
         )
 
-    monkeypatch.setattr("app.inference.call", rpc)
-    monkeypatch.setattr("app.inference.complete", model)
+    monkeypatch.setattr("services.chat.inference.call", rpc)
+    monkeypatch.setattr("services.chat.inference.complete", model)
     trace = []
     token = tracing.calls.set(trace)
     try:

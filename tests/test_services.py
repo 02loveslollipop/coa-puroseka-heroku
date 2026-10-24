@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
-from app.config import settings
-from app.query import validate_sql, QueryRejected
-from app import auth
+from shared.config import settings
+from services.ontology.query import validate_sql, QueryRejected
+from services.chat import auth
 from services.login.main import app as login
 from services.ontology.main import app as ontology
 from services.chat.main import app as chat

@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 import pytest
 from rdflib import Graph
-from app.config import artifact, ARTIFACTS, settings
+from shared.config import artifact, ARTIFACTS, settings
 
 pytestmark = pytest.mark.skipif(
     not (ARTIFACTS / "catalog.json").exists()
@@ -54,10 +54,13 @@ def test_ranking_manifest():
 
 
 def test_few_shot_safety_and_mappings():
-    from app.query import validate_sql
+    from services.ontology.query import validate_sql
 
     examples = json.loads(
-        (Path(__file__).resolve().parents[1] / "semantic/few_shots.json").read_text()
+        (
+            Path(__file__).resolve().parents[1]
+            / "services/ontology/semantic/few_shots.json"
+        ).read_text()
     )
     tables = set(artifact("catalog.json")["tables"]) | {"ranking_observations"}
     for example in examples:

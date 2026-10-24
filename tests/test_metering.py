@@ -2,18 +2,14 @@
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
-import os
-from pathlib import Path
-from urllib.parse import urlsplit
-from uuid import uuid4
 
 import psycopg
 from psycopg import sql
 import pytest
 from fastapi.testclient import TestClient
 
-from app import auth, control, metering, tokenization
-from app.config import settings
+from services.chat import auth, control, metering, tokenization
+from shared.config import settings
 from services.chat.main import app
 
 
@@ -71,40 +67,6 @@ def test_exhausted_demo_blocks_before_creating_model_job(monkeypatch):
     assert 21598 <= int(response.headers["retry-after"]) <= 21600
 
 
-@pytest.fixture
-def budget_db(monkeypatch):
-    url = os.getenv("LOCAL_TEST_DATABASE_URL")
-    if not url:
-        pytest.skip("Requires disposable local PostgreSQL")
-    if urlsplit(url).hostname not in {"127.0.0.1", "localhost"}:
-        pytest.fail("Local database required")
-    name = "coa_budget_test_" + uuid4().hex[:10]
-    with psycopg.connect(url) as conn:
-        conn.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(name)))
-        ddl = (
-            Path(__file__).resolve().parents[1] / "infra/heroku/control.sql"
-        ).read_text()
-        conn.execute(ddl.replace("{schema}", sql.Identifier(name).as_string(conn)))
-        conn.execute(
-            sql.SQL(
-                "INSERT INTO {}.chat_policies VALUES('demo',true,true,25000,21600)"
-            ).format(sql.Identifier(name))
-        )
-        conn.execute(
-            sql.SQL(
-                "INSERT INTO {}.chat_budgets(username,resets_at) VALUES('demo',%s)"
-            ).format(sql.Identifier(name)),
-            (control.utcnow() + timedelta(hours=6),),
-        )
-    monkeypatch.setitem(settings(), "DATA_SCHEMA", name)
-    monkeypatch.setitem(settings(), "CONTROL_DATABASE_URL", url)
-    try:
-        yield url, name
-    finally:
-        with psycopg.connect(url) as conn:
-            conn.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(name)))
-
-
 def test_concurrent_requests_cannot_over_reserve_and_usage_settles(budget_db):
     def reserve():
         try:
@@ -158,7 +120,7 @@ def test_public_provisioning_preserves_usage_and_privileged_accounts(
     budget_db, tmp_path, monkeypatch
 ):
     from scripts import provision_demo
-    from app.local_auth import password_matches
+    from services.login.accounts import password_matches
 
     (tmp_path / ".env").write_text(
         "MIGRATION_ADMIN_DATABASE_URL="

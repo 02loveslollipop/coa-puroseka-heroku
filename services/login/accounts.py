@@ -7,9 +7,9 @@ from datetime import timedelta
 
 from fastapi import HTTPException, Request
 
-from app.config import settings
-from app.control import control_connection, utcnow
-from app.database import namespace
+from shared.config import settings
+from shared.control_database import control_connection, utcnow
+from shared.database import namespace
 
 COOKIE = "coa_session"
 SESSION_SECONDS = 3600

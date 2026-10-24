@@ -1,5 +1,5 @@
 import pytest
-from app.query import validate_sql, QueryRejected
+from services.ontology.query import validate_sql, QueryRejected
 
 TABLES = {"events", "cards", "event_cards", "gachas", "characters"}
 
@@ -18,6 +18,7 @@ TABLES = {"events", "cards", "event_cards", "gachas", "characters"}
         "SELECT * FROM pg_catalog.events",
         "SELECT set_config('search_path','public',true)",
         "SELECT * FROM generate_series(1,1000000)",
+        "WITH x AS (WITH auth_accounts AS (SELECT 1) SELECT * FROM auth_accounts) SELECT * FROM auth_accounts",
     ],
 )
 def test_reject_unsafe_queries(query):
@@ -36,3 +37,11 @@ def test_reject_unsafe_queries(query):
 )
 def test_accept_queries(query):
     assert "coa_puroseka." in validate_sql(query, TABLES)
+
+
+def test_cte_can_shadow_a_public_table_without_being_requalified():
+    query = validate_sql(
+        "WITH events AS (SELECT id FROM coa_puroseka.events) SELECT * FROM events",
+        TABLES,
+    )
+    assert query.endswith("SELECT * FROM events")

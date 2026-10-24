@@ -1,124 +1,129 @@
-# COA Puroseka — Cloudflare Pages and Heroku Eco
+# Puroseka context ontology demo
 
-Frontend: [chat](https://chat.coa.puroseka.02labs.me/) · [administration](https://chat.coa.puroseka.02labs.me/admin/sources). Browser API: [health](https://api.coa.puroseka.02labs.me/api/health).
+A small implementation based on [AWS Context Ontology Accelerator (COA) v0.3.7](https://github.com/aws/context-ontology-accelerator/tree/v0.3.7): a fixed ontology helps a language model query historical event rankings and game metadata using PostgreSQL.
 
-The migration is complete: the source dataset, fixed ontology, and application state are stored in the new schema of the existing external PostgreSQL database. Base and Enhanced responses, event comparison, daily evolution, Review mode, and durable sessions/metering have passed production checks. All three applications use Eco web dynos with no add-ons. The public demo has token enforcement enabled; the private administrator's enforcement remains off. The AWS application has not been changed or shut down.
+This is an independent demonstration, **not affiliated with or endorsed by Project SEKAI or its rights holders**. Data is obtained from **[sekai.best datasets (Sekai Viewer)](https://sekai.best/)**. Source data, generated artifacts, and private credentials are not distributed in this repository. Credits and licenses: [THIRD_PARTY.md](THIRD_PARTY.md), [upstream NOTICE](NOTICE), [LICENSE](LICENSE).
 
-## Try the public demo
+## Try the demo
 
-Open **[Puroseka chat](https://chat.coa.puroseka.02labs.me/)** and sign in:
+Open **[Puroseka chat](https://chat.coa.puroseka.02labs.me/)**.
 
-| Field | Public testing value |
-|---|---|
-| Email | `demo@02labs.me` |
-| Password | `demo1234` |
-| Allowance | **25,000 tokens per six-hour window** — about **100,000 over four windows** |
-| Access | Chat, Base/Enhanced responses, and A/B testing |
+| Email | Password | Shared allowance |
+|---|---|---|
+| `demo@02labs.me` | `demo1234` | 25,000 input/output tokens per six-hour window |
 
-These credentials are intentionally public. This is a shared chat-only account: all visitors consume the same allowance. Administration, source previews, ontology downloads, full JSON Review mode, and token-policy changes require the private administrator account.
+These credentials are intentionally public. All visitors share the allowance: approximately 100,000 tokens across four windows, including both responses in A/B mode. The reset time is shown in chat. The Mistral sandbox has its own limits; Eco services may take time to wake up.
 
-Input and output tokens count toward the allowance, including both sides of an A/B comparison. Unused allowance does not carry over. When a response cannot fit within the remaining allowance, wait until the reset time displayed in chat; there is no additional six-hour delay after that reset. Requests reserve prompt tokens and maximum response capacity before calling Mistral, then settle against provider-reported usage. The shared Mistral sandbox can also reach its own quota.
-
-Try these questions in Enhanced mode:
+Choose **Enhanced** for ontology context, **No enhancement** for the physical schema, or **A/B testing** to compare both using `ministral-8b-latest`. Try:
 
 - Compare rank 100 progression in events 1 and 2 by elapsed event day.
 - Show the daily score evolution at rank 100 in event 1.
 - Which characters have cards associated with event 1?
 
-Operators can provision or reapply this account with `.venv/bin/python scripts/provision_demo.py`, using the ignored operator database configuration. Rerunning it preserves consumed tokens and reservations; application restarts and deployments do not reset the allowance.
+Demo jobs do not store the submitted question, conversation history, or full Review traces. Responses and activity metadata expire after 24 hours. Cleanup runs on startup and every ten minutes while the existing chat process is awake; expired responses cannot be retrieved even before cleanup. Responses can repeat parts of a question. Browser conversation history stays on that browser until deleted using **Delete chat**. Token counters are retained independently and cleanup never replenishes the allowance.
 
-Three small services demonstrate a fixed context ontology, semantic enrichment, and NL2SQL over the complete prepared Puroseka dataset. The UI uses Cloudscape components and AI chat patterns. The same `ministral-8b-latest` model supports Base, Enhanced, and A/B comparison, with tool activity, SQL evidence, and administrator Review mode. Ranking answers present the returned SQL rows and calculate score comparisons in code. This avoids a second model narration adding unsupported causes or reversing numeric comparisons; generated SQL still needs evidence review.
+The full-snapshot daily-gap example uses a covering UTC-day index, preserving all source observations while avoiding scans of the raw JSON pages.
 
-This repository is separate from the [original AWS application](https://github.com/02loveslollipop/coa-puroseka). It contains source code, hand-authored semantic examples, and the explicitly public demo credentials above. Source records, generated ontology artifacts, translations, database dumps, private credentials, and operational reports remain private and ignored.
+The private administrator can open the [dashboard](https://chat.coa.puroseka.02labs.me/admin/sources), inspect sources and ontology relations, and use Review mode for tool input/output JSON and executed SQL. Public demo access is chat only.
 
-## Services and data
+## Data and context ontology
 
-### Data source attribution
+The imported snapshot has **180 events**, 1,229 cards, 26 characters, 950 event-card associations, 815 gachas, and **1,117,619 ranking observations**. Ranking histories cover 142 events; the other 38 have no observations. All available observations are retained across 16 registered tables. There are 2,250 source/generated labels.
 
-The source data used by this application is obtained from **[sekai.best datasets (Sekai Viewer)](https://sekai.best/)**. Credit for the supplied datasets belongs to sekai.best and the respective data owners. The ontology definitions, semantic enrichment, and generated English labels are part of this PoC.
+![Styled ontology relationship graph](docs/ontology-relations.svg)
 
-| Service | Purpose | Process |
-|---|---|---|
-| Frontend | Static Cloudscape chat and administration; deployed independently on Cloudflare Pages | `web/` |
-| Chat | Browser API, model calls, asynchronous jobs, reviews, token accounting | `services.chat.main:app` |
-| Ontology | Fixed catalog, RDF, examples, source inspection, guarded read-only SQL | `services.ontology.main:app` |
-| Login | Salted scrypt passwords, persistent opaque sessions, roles, login throttling | `services.login.main:app` |
+Arrows connect a referencing table to its referenced entity. Labels are a separate lookup by entity type and ID, rather than an asserted foreign key. The editable diagram source is [ontology-relations.dot](docs/ontology-relations.dot).
 
-All three use the existing external PostgreSQL database in a new `coa_puroseka` schema. Ontology introspection exposes only the 16 registered source tables; authentication, accounting, jobs, and ontology storage are excluded from the model's SQL allowlist. Prefer separate restricted database users when the existing provider supports them. A shared owner credential provides logical separation, not a database privilege boundary.
+The fixed `puroseka-1.1.0` release contains:
 
-The dataset contains 180 events, 1,229 cards, 26 characters, 950 event-card associations, 815 gachas, 2,250 labels, and **all 1,117,619 available ranking observations**. Ranking records cover 142 events; missing histories for the remaining events are retained as coverage information, never invented or treated as zero. Original JSON and provenance are preserved. Five curated examples demonstrate comparisons and gap-aware daily evolution.
+| Element | Content |
+|---|---|
+| Catalog | Entity classes, table and column definitions, aliases, data types and coverage |
+| Relationships | 15 validated associations connecting cards, characters, events, gachas and rankings |
+| Rules | Meaning of timestamps, joins, ranking endpoints, daily changes and missing observations |
+| RDF | Classes, datatype properties and object properties in `ontology.ttl` |
+| Labels | Original names and approximate English convenience labels |
+| NL2SQL examples | Six curated question/SQL pairs for comparisons, daily evolution, event cards and gacha pools |
 
-There is no enrichment agent or automatic ontology generation at runtime. The prepared `puroseka-1.1.0` release is imported once. Token metering and per-account enforcement persist in PostgreSQL. The demo is limited to **25,000 tokens every six hours**. The private administrator retains enforcement **off**, with 100,000 tokens/hour parked as the configurable allowance. The administrator's email/password opens chat and administration; no Cognito access is required.
+Example column meanings:
 
-Prompt reservations count text locally with the deployed Ministral 8B revision's checksum-pinned Tekken vocabulary, plus chat-template safety margin and maximum output. This lets Enhanced prompts fit the demo allowance while reserving capacity before requests run. Unknown model revisions or tokenizer failures retain the conservative byte-based reservation. Actual charges use Mistral's reported total tokens. The vocabulary is cached in temporary storage and is not published in this repository; token counting sends no prompts or data to the vocabulary host.
+| Column | Meaning |
+|---|---|
+| `events.start_at` | Competition start, Unix epoch milliseconds |
+| `events.aggregate_at` | Competition aggregation boundary; `closed_at` is a later lifecycle boundary |
+| `ranking_observations.observed_at` | PostgreSQL timestamp with time zone, already a timestamp |
+| `ranking_observations.score` | Cumulative points observed at a rank; not a daily gain |
+| `ranking_observations.row_key` | Source provenance and deterministic tie-breaker; this table has no `id` column |
+| `event_cards.card_id` | Explicit card association; does not by itself prove pickup or bonus status |
 
-## Local setup and checks
+For daily evolution, use the latest observation per event/rank/UTC day. Differences between endpoints include the elapsed-day gap: missing days are not zero. Compare event progression at the same rank by elapsed 24-hour event days. A last observed score is historical evidence, not a guaranteed official final cutoff. Pool membership does not establish drop probability.
 
-Use Python 3.15, Node 24 LTS, and a disposable local PostgreSQL instance for migration tests. Backend apps use Heroku-26 with the Python buildpack and the existing Procfile web command. Node and frontend assets are excluded from backend builds. Pydantic and Psycopg are updated for Python 3.15 binary compatibility.
+Curated definitions live in [services/ontology/semantic/](services/ontology/semantic/). The prepared catalog, RDF, labels and examples are imported once into the database. There is no runtime enrichment agent.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    UI[Cloudscape chat and admin<br/>Cloudflare Pages] --> Chat[Chat API<br/>Heroku Eco]
+    Chat --> Login[Login service<br/>Heroku Eco]
+    Chat --> Ontology[Ontology service<br/>Heroku Eco]
+    Chat --> Model[Mistral sandbox<br/>Ministral 8B]
+    Ontology --> Login
+    Chat --> DB[(Existing PostgreSQL<br/>coa_puroseka schema)]
+    Login --> DB
+    Ontology --> DB
+    classDef frontend fill:#e1efff,stroke:#3976b7,color:#102a43
+    classDef service fill:#d8f3e9,stroke:#258368,color:#102a43
+    classDef store fill:#fff0d6,stroke:#a67522,color:#102a43
+    class UI frontend
+    class Chat,Login,Ontology service
+    class DB,Model store
+```
+
+- `services/chat/`: authenticated browser API, model calls, asynchronous responses, token accounting and demo retention.
+- `services/ontology/`: immutable semantic context, source inspection and guarded read-only SQL.
+- `services/login/`: scrypt password hashes, persistent opaque sessions, roles and login throttling.
+- `shared/`: configuration, database connection plumbing, service authentication and RPC.
+- `web/`: independent React/Cloudscape frontend and its Node dependencies.
+- `infra/`, `scripts/`, `tests/`: deployment, operator tooling and verification.
+
+Enhanced requests add definitions, relationships, rules, coverage, relevant labels and six examples to the physical schema. SQL runs through an AST allowlist, read-only transactions, timeouts and output bounds. Syntax/schema errors receive at most one metered correction attempt; rejected unsafe queries and service outages are never retried by the model. Ranking answers format returned evidence deterministically.
+
+## Setup and deployment
+
+Use Python 3.15 and Node 24. Private configuration goes in an ignored `.env`:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r infra/requirements.txt
 cp .env.example .env
 npm --prefix web ci
+.venv/bin/python -m pytest -c tests/pyproject.toml -q
 VITE_API_ORIGIN=https://api.coa.puroseka.02labs.me npm --prefix web run build
-.venv/bin/python -m pytest -q
 ```
 
-Populate the ignored `.env` locally. Never put private credentials in shell arguments, Git, screenshots, or issue text. `MIGRATION_DATABASE_URL` selects the existing destination and runtime account. When that account cannot provision schemas, set `MIGRATION_ADMIN_DATABASE_URL` locally to an owner/admin connection to the same database. The importer then keeps schema ownership with the operator and grants runtime access without source-data writes. The admin connection is never sent to Heroku. `SOURCE_DATABASE_URL` selects a restored private source snapshot. `SOURCE_ARTIFACT_DIR` holds the prepared catalog, manifests, labels, SQL examples, and Turtle file. The repository does not distribute these generated artifacts.
+Each backend owns `services/<name>/requirements.txt` and `.python-version`; common dependencies are in `shared/requirements.txt`. To install just one backend, use its requirements file. Local startup uses `COA_SERVICE=chat`, `login`, or `ontology` and `python infra/heroku/start.py`. Set its database URL, service URLs/tokens and port as described in [.env.example](.env.example).
 
-Before a production import, take and restore-check a backup of the existing target database. Then run:
+For a new private dataset import, configure the existing target database, a restored source database, and prepared artifacts using the migration variables in `.env`. Take and restore-check a backup, then import into the new schema:
 
 ```bash
 .venv/bin/python scripts/backup_target.py
 .venv/bin/python scripts/migrate_postgres.py
+.venv/bin/python scripts/provision_demo.py
+# For an existing import: validate and publish the current curated examples.
+.venv/bin/python scripts/update_query_examples.py
 ```
 
-The migration refuses an existing target schema. It copies all source rows into one new namespace in a transaction, retains primary/unique keys and indexes, recreates validated relationships, compares per-table SHA-256 fingerprints using a common byte ordering across database locales, checks source/target query parity, preserves metering/jobs/reviews, seeds the existing administrator with a fresh local hash, and invalidates old browser sessions. An error rolls the transaction back. Unrelated schemas are neither imported into nor reset.
+The importer refuses an existing destination schema and verifies counts, fingerprints and SQL example parity. The operator database credential stays local. Reprovisioning the demo preserves consumed tokens. Use a disposable local PostgreSQL database for database tests via `LOCAL_TEST_DATABASE_URL`.
 
-Run the three-service check against a **local disposable** migrated database by setting `LOCAL_TEST_DATABASE_URL` in your shell environment:
-
-```bash
-.venv/bin/python scripts/verify_services.py
-# Optional: two real model requests, one Base and one Enhanced.
-.venv/bin/python scripts/verify_services.py --live-model
-```
-
-The check exercises real service HTTP calls, authentication, CSRF, private-table rejection, source inspection, timelines, SQL, session persistence, usage persistence, and interrupted jobs. The optional model check also verifies asynchronous replies and redacted Review mode traces. For the deployed applications, `scripts/verify_deployment.py --live-model --restart` checks real HTTPS APIs, both model modes, event comparisons, daily evolution, and session/meter persistence after restarting existing Eco processes.
-
-## Eco-only deployment
-
-`app.json` declares exactly one **Eco web dyno** per application and **no add-ons, release commands, postdeploy commands, workers, or one-off dynos**. The deployment script validates that manifest before creating anything. It uses Heroku app-setups to specify Eco sizing before the first web process starts, and verifies the existing formation before rebuilding recorded apps. It never provisions a database, upgrades a plan, or falls back to a different dyno class.
-
-Authenticate the Heroku CLI, publish the audited source to `coa-puroseka-heroku`, and run:
+Deployment uses the three existing recorded **Eco web apps only**, without add-ons, workers or schedulers. Authenticate the Heroku CLI and `cf auth login`; local app IDs and URLs are recorded in ignored `.deploy/heroku-services.json`. Publish an audited commit to this repository, then run:
 
 ```bash
+PRIVATE_REFERENCE_ENV=/path/to/private/reference.env .venv/bin/python scripts/audit_publication.py
 .venv/bin/python scripts/deploy_heroku.py
-```
-
-The script creates personal apps for login, ontology, and chat or rebuilds the three recorded apps on the manifest's stack. Existing apps must already have exactly one Eco web dyno and zero add-ons. Only each service's required configuration is passed through the authenticated API. The Mistral key goes only to chat. The administrator's plaintext password is used only for the workstation migration and is not placed in Heroku config vars. Heroku deployment state and URLs are saved in ignored `.deploy/heroku-services.json`.
-
-## Independent frontend, domains and HTTPS
-
-The frontend calls `VITE_API_ORIGIN` directly with credentialed requests. The API allows only its exact `PUBLIC_ORIGIN`, including credentialed CORS preflight; mutations still require the session CSRF token. The session cookie is host-only, Secure, HttpOnly and SameSite=Strict. The production frontend and API are HTTPS subdomains of the same site. Unrelated `pages.dev` preview origins cannot authenticate to the production API.
-
-Both custom CNAME records are **DNS-only (`proxied: false`)**. Pages manages the certificate for `chat.coa.puroseka.02labs.me`; Heroku ACM manages `api.coa.puroseka.02labs.me` using the app's assigned `herokudns.com` target. No wildcard certificate or paid certificate product is required. Login and ontology retain their existing service URLs and bearer-authenticated service boundaries.
-
-Authenticate `cf auth login`, then configure the existing backend domain and build/deploy the frontend:
-
-```bash
-.venv/bin/python scripts/configure_domains.py
-VITE_API_ORIGIN=https://api.coa.puroseka.02labs.me npm --prefix web run build
 .venv/bin/python scripts/deploy_frontend.py
-# Publish audited source before rebuilding the backends.
-.venv/bin/python scripts/deploy_heroku.py
-.venv/bin/python scripts/verify_deployment.py --live-model
 ```
 
-`deploy_frontend.py` uploads only checked static output from `web/dist`; it refuses unexpected files and configured secret values. It uses `cf` for project, deployment-status, custom-domain and DNS operations. The installed CLI cannot upload assets or attach deployment header/redirect files. These payloads use the Pages API with the authenticated `cf` session; asset requests use its short-lived upload JWT. No OAuth token is saved in the project or deployment. Git integration is not required. Conflicting existing DNS records are left untouched. Deployment receipts remain in ignored `.deploy/`.
+Backend deployment packages tracked code for each service, adding root build files only inside its temporary Heroku source archive. It verifies one Eco web process and zero add-ons before rebuilding the recorded apps. No database or other resource is provisioned. Frontend deployment uploads only checked static assets. The API is `https://api.coa.puroseka.02labs.me`; frontend CORS accepts the exact chat origin and mutations require CSRF protection.
 
-Eco dynos sleep after inactivity and share the account's 1,000-hour monthly pool. Dependency services can also need time to wake; the UI reports temporary service unavailability and allows retry. There are no keep-alive jobs. Eco is intended for this small demo, not continuous availability. [Heroku Eco behavior](https://devcenter.heroku.com/articles/eco-dyno-hours).
-
-The database must be reachable from the workstation for backup/import and from Heroku for runtime access. A deployed frontend with an unavailable database is not a completed migration. Keep AWS available until sign-in, both model modes, review, source counts, and persistence have passed on Heroku. Do not shut down AWS as part of this deployment.
-
-See [migration design and acceptance sequence](docs/heroku-migration-plan.md). Upstream attribution and licenses are retained in [THIRD_PARTY.md](THIRD_PARTY.md).
+Both custom DNS records are DNS-only. Cloudflare Pages manages the frontend certificate; Heroku ACM manages the API certificate. The frontend helper uses the authenticated `cf` session, with the Pages API for asset uploads unsupported by the installed CLI. Deployment receipts remain private.

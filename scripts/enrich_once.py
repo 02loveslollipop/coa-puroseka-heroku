@@ -8,8 +8,8 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from app.config import artifact, ARTIFACTS, settings
-from app.llm import complete
+from shared.config import artifact, ARTIFACTS, settings
+from services.chat.llm import complete
 
 
 async def run(check_only=False):

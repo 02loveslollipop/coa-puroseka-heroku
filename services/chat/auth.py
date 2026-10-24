@@ -2,7 +2,7 @@
 
 import hmac
 from fastapi import HTTPException, Request
-from app.config import settings
+from shared.config import settings
 from shared.rpc import call
 
 COOKIE = "coa_session"

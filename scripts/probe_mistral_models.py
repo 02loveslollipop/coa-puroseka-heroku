@@ -9,7 +9,7 @@ import time
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import httpx
-from app.config import settings
+from shared.config import settings
 
 
 def run():

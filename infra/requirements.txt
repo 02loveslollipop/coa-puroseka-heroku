@@ -1,0 +1,4 @@
+-r ../services/chat/requirements.txt
+-r ../services/ontology/requirements.txt
+-r ../services/login/requirements.txt
+pytest==9.0.2

@@ -7,12 +7,14 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from rdflib import Graph, Namespace, RDF, RDFS, OWL, Literal
-from app.config import artifact, ARTIFACTS
+from shared.config import artifact, ARTIFACTS
 
 
 def run():
     c = artifact("catalog.json")
-    ranking = json.loads((ROOT / "semantic/rankings.json").read_text())
+    ranking = json.loads(
+        (ROOT / "services/ontology/semantic/rankings.json").read_text()
+    )
     m = artifact("ranking_manifest.json")
     ranking["row_count"] = m["row_count"]
     ranking["source_files"] = ["event_rank_snapshots/*/rank_*.json"]
@@ -85,7 +87,7 @@ def run():
     (ARTIFACTS / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2)
     )
-    shots = json.loads((ROOT / "semantic/few_shots.json").read_text())
+    shots = json.loads((ROOT / "services/ontology/semantic/few_shots.json").read_text())
     (ARTIFACTS / "few_shots.json").write_text(
         json.dumps(shots, ensure_ascii=False, indent=2)
     )

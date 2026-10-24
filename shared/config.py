@@ -21,7 +21,7 @@ ARTIFACTS = Path(
 
 def artifact(name):
     if settings().get("ARTIFACT_STORE") == "database":
-        from app.database import connection, namespace
+        from shared.database import connection, namespace
 
         with connection() as conn:
             row = conn.execute(

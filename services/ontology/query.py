@@ -3,7 +3,9 @@
 import json
 from fastapi.encoders import jsonable_encoder
 from sqlglot import parse, exp
-from app.database import connection, schema_name, namespace
+from sqlglot.optimizer.scope import Scope, traverse_scope
+from shared.database import connection, schema_name, namespace
+from shared.query_errors import QueryRejected
 
 ALLOWED_FUNCTIONS = {
     "count",
@@ -67,10 +69,6 @@ ALLOWED_FUNCTIONS = {
 }
 
 
-class QueryRejected(ValueError):
-    pass
-
-
 def validate_sql(statement, tables):
     if len(statement) > 16000:
         raise QueryRejected("Query is too long")
@@ -99,22 +97,24 @@ def validate_sql(statement, tables):
         for n in tree.walk()
     ):
         raise QueryRejected("Only read-only SELECT queries are permitted")
-    ctes = {c.alias for c in tree.find_all(exp.CTE)}
-    for t in tree.find_all(exp.Table):
-        if (
-            t.catalog
-            or t.db not in ("", schema_name())
-            or (t.name not in tables and (t.name not in ctes or t.db))
-        ):
-            raise QueryRejected("Only the imported data tables may be queried")
+    for scope in traverse_scope(tree):
+        for table in scope.tables:
+            # Resolve CTEs in their actual scope. A CTE in an unrelated nested
+            # query must never authorize a physical private table of that name.
+            source = scope.sources.get(table.alias_or_name)
+            if isinstance(source, Scope) and not table.db and not table.catalog:
+                continue
+            if (
+                table.catalog
+                or table.db not in ("", schema_name())
+                or table.name not in tables
+            ):
+                raise QueryRejected("Only the imported data tables may be queried")
+            table.set("db", exp.Identifier(this=schema_name()))
     for f in tree.find_all(exp.Func):
         name = f.name.lower() if isinstance(f, exp.Anonymous) else f.sql_name().lower()
         if name not in ALLOWED_FUNCTIONS:
             raise QueryRejected(f"Function {name} is not permitted")
-    # Qualify physical tables so a session search_path cannot change their meaning.
-    for t in tree.find_all(exp.Table):
-        if t.name in tables:
-            t.set("db", exp.Identifier(this=schema_name()))
     return tree.sql(dialect="postgres")
 
 

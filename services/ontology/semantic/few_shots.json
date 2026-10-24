@@ -23,5 +23,10 @@
     "question": "How many distinct cards are listed in each of the first five gachas?",
     "sql": "SELECT g.id, g.name, count(DISTINCT d.card_id) AS listed_card_count FROM data.gachas g LEFT JOIN data.gacha_details d ON d.parent_id = g.id WHERE g.id IN (SELECT id FROM data.gachas ORDER BY id LIMIT 5) GROUP BY g.id, g.name ORDER BY g.id",
     "note": "The listed pool is distinct from the pickup set; never infer probability from membership."
+  },
+  {
+    "question": "Which event has the largest score gap/difference between 2 consecutive days?",
+    "sql": "WITH daily AS (SELECT DISTINCT ON (r.event_id,r.rank,(r.observed_at AT TIME ZONE 'UTC')::date) r.event_id,r.rank,(r.observed_at AT TIME ZONE 'UTC')::date AS utc_day,r.score AS last_observed_score FROM ranking_observations r JOIN events e ON e.id=r.event_id WHERE r.observed_at >= to_timestamp(e.start_at/1000.0) AND r.observed_at <= to_timestamp(e.aggregate_at/1000.0) ORDER BY r.event_id,r.rank,utc_day,r.observed_at DESC,r.row_key DESC), changes AS (SELECT *,lag(last_observed_score) OVER (PARTITION BY event_id,rank ORDER BY utc_day) AS previous_score,lag(utc_day) OVER (PARTITION BY event_id,rank ORDER BY utc_day) AS previous_utc_day FROM daily) SELECT event_id,rank,utc_day,previous_utc_day,last_observed_score,previous_score,last_observed_score-previous_score AS score_change_since_previous_observed_day,utc_day-previous_utc_day AS elapsed_calendar_days FROM changes WHERE utc_day-previous_utc_day=1 ORDER BY abs(last_observed_score-previous_score) DESC,event_id,rank,utc_day LIMIT 1",
+    "note": "Compare all available ranks, within each event/rank series. Use latest UTC daily endpoints and only adjacent days; sort by absolute difference and return the signed change and rank. Last observed scores are not official final cutoffs."
   }
 ]

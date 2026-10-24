@@ -15,7 +15,7 @@ import tempfile
 from threading import Lock
 
 import httpx
-from app.config import settings
+from shared.config import settings
 
 REVISION = "5b26027e7b19eeb4b7352e1fed3926375dd2cb4d"
 SHA256 = "600bb27946565481ecf51ba8aee252e49b9a68507866080ac9c30185bb312843"

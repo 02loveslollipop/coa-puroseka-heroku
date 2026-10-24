@@ -1,0 +1,37 @@
+digraph ontology {
+graph [rankdir=LR, bgcolor="#f5f8fc", pad="0.4", nodesep="0.45", ranksep="1.0", fontname="Arial", label="Puroseka fixed context ontology | schema relations", labelloc=t, fontsize=22, fontcolor="#102a43"];
+node [shape=box, style="rounded,filled", fillcolor="#e1efff", color="#3976b7", fontname="Arial", fontcolor="#102a43", margin="0.16,0.12"];
+edge [color="#647f99", fontname="Arial", fontsize=10, fontcolor="#36516d", arrowsize=0.7];
+events [label="Event\nevents", fillcolor="#d8f3e9"];
+cards [label="Card\ncards", fillcolor="#d8f3e9"];
+characters [label="Character\ncharacters", fillcolor="#d8f3e9"];
+event_cards [label="EventCardAssociation\nevent_cards", fillcolor="#d8f3e9"];
+gachas [label="Gacha\ngachas", fillcolor="#d8f3e9"];
+gacha_details [label="GachaCardPoolEntry\ngacha_details", fillcolor="#e1efff"];
+gacha_pickups [label="GachaPickup\ngacha_pickups", fillcolor="#e1efff"];
+gacha_behaviors [label="GachaBehavior\ngacha_behaviors", fillcolor="#e1efff"];
+gacha_rarity_rates [label="GachaRarityRate\ngacha_rarity_rates", fillcolor="#e1efff"];
+card_parameters [label="CardParameter\ncard_parameters", fillcolor="#e1efff"];
+card_training_costs [label="CardTrainingCost\ncard_training_costs", fillcolor="#e1efff"];
+card_master_resources [label="CardMasterResource\ncard_master_resources", fillcolor="#e1efff"];
+event_reward_ranges [label="EventRewardRange\nevent_reward_ranges", fillcolor="#e1efff"];
+event_rewards [label="EventReward\nevent_rewards", fillcolor="#e1efff"];
+ranking_observations [label="RankingObservation\nranking_observations", fillcolor="#fff0d6"];
+entity_labels [label="EntityLabel\nentity_labels", fillcolor="#e1efff"];
+cards -> characters [label="depicts\ncharacter_id → id"];
+event_cards -> events [label="associatedEvent\nevent_id → id"];
+event_cards -> cards [label="associatedCard\ncard_id → id"];
+gacha_details -> gachas [label="poolOf\nparent_id → id"];
+gacha_details -> cards [label="poolCard\ncard_id → id"];
+gacha_pickups -> gachas [label="pickupOf\nparent_id → id"];
+gacha_pickups -> cards [label="pickupCard\ncard_id → id"];
+gacha_behaviors -> gachas [label="behaviorOf\nparent_id → id"];
+gacha_rarity_rates -> gachas [label="rateOf\nparent_id → id"];
+card_parameters -> cards [label="parameterOf\nparent_id → id"];
+card_training_costs -> cards [label="trainingCostOf\nparent_id → id"];
+card_master_resources -> cards [label="masterResourceOf\nparent_id → id"];
+event_reward_ranges -> events [label="rewardRangeOf\nparent_id → id"];
+event_rewards -> event_reward_ranges [label="rewardOf\nparent_id → row_key"];
+ranking_observations -> events [label="observedInEvent\nevent_id → id"];
+entity_labels [label="EntityLabel\nentity_type + entity_id\noriginal / english (approximate)", fillcolor="#f1e8ff"];
+}

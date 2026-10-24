@@ -95,7 +95,7 @@ def verify(database_url, live=False):
             start(service)
             ready(service)
         with httpx.Client(base_url=base_env["PUBLIC_ORIGIN"], timeout=25) as browser:
-            check(browser.get("/").status_code == 200, "Cloudscape SPA served")
+            check(browser.get("/").status_code == 404, "Backend serves APIs only")
             check(
                 browser.get("/api/schema").status_code == 401,
                 "Anonymous schema access denied",

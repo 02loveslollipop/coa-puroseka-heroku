@@ -211,7 +211,9 @@ def verify(live_model=False, restart=False):
                 "Live SQL sees all 180 events",
             )
             if live_model:
-                examples = json.loads((ROOT / "semantic/few_shots.json").read_text())
+                examples = json.loads(
+                    (ROOT / "services/ontology/semantic/few_shots.json").read_text()
+                )
                 cases = [
                     (
                         "base",

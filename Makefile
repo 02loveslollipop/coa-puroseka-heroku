@@ -1,7 +1,7 @@
 .PHONY: test build migrate deploy
 
 test:
-	.venv/bin/python -m pytest -q
+	.venv/bin/python -m pytest -c tests/pyproject.toml -q
 build:
 	npm --prefix web run build
 migrate:

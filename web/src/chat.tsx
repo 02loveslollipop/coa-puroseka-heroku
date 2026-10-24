@@ -125,7 +125,8 @@ export function UserChat() {
     for (const variant of ab ? variants : [current.mode as Variant]) {
       setPendingVariant(variant);
       try {
-        results[variant] = await runInference<ChatResponse>("/chat/jobs", { question: value, mode: variant, history }, progress => setPendingProgress(all => ({ ...all, [variant]: progress })));
+        const response = await runInference<ChatResponse>("/chat/jobs", { question: value, mode: variant, history }, progress => setPendingProgress(all => ({ ...all, [variant]: progress })));
+        results[variant] = { ...response, question: value };
       } catch (e) { results[variant] = { question: value, answer: (e as Error).message, status: "error", mode: variant }; }
       setPendingResults({ ...results });
     }

@@ -94,7 +94,9 @@ def build(source, out):
         for index, r in enumerate(rows):
             add(table, r, f"{name}/{index}")
         lineage[table] = [name]
-    definitions = json.loads((ROOT / "semantic/definitions.json").read_text())
+    definitions = json.loads(
+        (ROOT / "services/ontology/semantic/definitions.json").read_text()
+    )
     catalog = {
         "version": definitions["version"],
         "description": definitions["description"],

@@ -1,5 +1,5 @@
 import pytest
-from app.query import validate_sql, QueryRejected
+from services.ontology.query import validate_sql, QueryRejected
 
 
 def test_reject_excessive_query():

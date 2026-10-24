@@ -1,8 +1,6 @@
-"""Create exactly three personal apps with Eco web dynos and no add-ons.
+"""Rebuild the three recorded Eco apps from service-specific audited source.
 
-Uses Heroku app-setups so Eco sizing is explicit before the first process starts.
-No release, postdeploy, worker, or one-off process is declared. Database migration
-is a separate workstation operation against the existing database.
+No apps, add-ons, workers, schedulers, one-off dynos or databases are created.
 """
 
 import json
@@ -15,7 +13,7 @@ import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import httpx
-from dotenv import dotenv_values, set_key
+from dotenv import dotenv_values
 
 ROOT = Path(__file__).resolve().parents[1]
 STATE = ROOT / ".deploy/heroku-services.json"
@@ -38,23 +36,21 @@ def save(state):
 
 
 def deploy():
+    from scripts.audit_publication import audit
+    from scripts.service_bundle import upload
+
     manifest = json.loads((ROOT / "app.json").read_text())
     validate_resources(manifest)
+    if subprocess.check_output(
+        ["git", "status", "--porcelain"], cwd=ROOT, text=True
+    ).strip():
+        raise ValueError("Commit and audit source before deploying")
+    if audit()["status"] != "passed":
+        raise ValueError("Publication audit failed")
     cfg = dotenv_values(ROOT / ".env")
-    if not cfg.get("MIGRATION_DATABASE_URL") or not cfg.get("MISTRAL_API_KEY"):
-        raise ValueError("Private database/model configuration missing")
-    # Never inherit AWS env vars or copy all local configuration to Heroku.
-    for key in ["LOGIN_SERVICE_TOKEN", "ONTOLOGY_SERVICE_TOKEN"]:
-        if not cfg.get(key):
-            import secrets
-
-            value = secrets.token_urlsafe(48)
-            set_key(ROOT / ".env", key, value)
-            cfg[key] = value
-    (ROOT / ".env").chmod(0o600)
-    token = (
-        os.getenv("HEROKU_API_KEY") or netrc.netrc().authenticators("api.heroku.com")[2]
-    )
+    state = json.loads(STATE.read_text())
+    if set(state["services"]) != {"login", "ontology", "chat"}:
+        raise ValueError("Record the three existing Eco apps before deployment")
     revision = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
     ).strip()
@@ -65,12 +61,14 @@ def deploy():
         REPOSITORY + ".git",
         "git@github.com:02loveslollipop/coa-puroseka-heroku.git",
     }:
-        raise ValueError("Unexpected Git remote; refusing deployment")
-    archive = REPOSITORY + "/archive/" + revision + ".tar.gz"
-    state = (
-        json.loads(STATE.read_text())
-        if STATE.exists()
-        else {"services": {}, "dyno_type": "eco", "repository": REPOSITORY}
+        raise ValueError("Unexpected Git remote")
+    published = subprocess.check_output(
+        ["git", "ls-remote", "origin", "refs/heads/main"], cwd=ROOT, text=True
+    )
+    if not published.startswith(revision + "\t"):
+        raise ValueError("Publish the audited revision before deployment")
+    token = (
+        os.getenv("HEROKU_API_KEY") or netrc.netrc().authenticators("api.heroku.com")[2]
     )
     with httpx.Client(
         base_url="https://api.heroku.com",
@@ -80,187 +78,105 @@ def deploy():
         },
         timeout=30,
     ) as api:
+        # Validate every app before any mutation. No resources are created,
+        # resized or stopped by this script.
+        for item in state["services"].values():
+            formation = api.get(f"/apps/{item['id']}/formation")
+            formation.raise_for_status()
+            if len(formation.json()) != 1 or any(
+                f["size"].lower() != "eco" or f["type"] != "web" or f["quantity"] != 1
+                for f in formation.json()
+            ):
+                raise ValueError("Expected exactly one Eco web dyno")
+            addons = api.get(f"/apps/{item['id']}/addons")
+            addons.raise_for_status()
+            if addons.json():
+                raise ValueError("Unexpected add-ons; no deployment performed")
         for service in ["login", "ontology", "chat"]:
+            item = state["services"][service]
             base = {
                 "COA_SERVICE": service,
                 "DATA_SCHEMA": cfg.get("DATA_SCHEMA", "coa_puroseka"),
                 "ARTIFACT_STORE": "database",
                 "SEMANTIC_VERSION": "puroseka-1.1.0",
             }
-            # Credentials are restricted per service where database roles are available.
+            database = (
+                cfg.get(service.upper() + "_DATABASE_URL")
+                or cfg["MIGRATION_DATABASE_URL"]
+            )
             if service == "ontology":
                 base.update(
-                    DATABASE_URL=cfg.get("ONTOLOGY_DATABASE_URL")
-                    or cfg["MIGRATION_DATABASE_URL"],
+                    DATABASE_URL=database,
                     LOGIN_SERVICE_URL=state["services"]["login"]["url"],
                     LOGIN_SERVICE_TOKEN=cfg["LOGIN_SERVICE_TOKEN"],
                     ONTOLOGY_SERVICE_TOKEN=cfg["ONTOLOGY_SERVICE_TOKEN"],
                 )
             else:
-                base["CONTROL_DATABASE_URL"] = (
-                    cfg.get(service.upper() + "_DATABASE_URL")
-                    or cfg["MIGRATION_DATABASE_URL"]
+                base.update(
+                    CONTROL_DATABASE_URL=database,
+                    LOGIN_SERVICE_TOKEN=cfg["LOGIN_SERVICE_TOKEN"],
                 )
-                if service == "login":
-                    base["LOGIN_SERVICE_TOKEN"] = cfg["LOGIN_SERVICE_TOKEN"]
-                else:
+                if service == "chat":
                     base.update(
                         LOGIN_SERVICE_URL=state["services"]["login"]["url"],
-                        LOGIN_SERVICE_TOKEN=cfg["LOGIN_SERVICE_TOKEN"],
                         ONTOLOGY_SERVICE_URL=state["services"]["ontology"]["url"],
                         ONTOLOGY_SERVICE_TOKEN=cfg["ONTOLOGY_SERVICE_TOKEN"],
                         MISTRAL_API_KEY=cfg["MISTRAL_API_KEY"],
                         MISTRAL_MODEL="ministral-8b-latest",
+                        PUBLIC_ORIGIN=cfg["PUBLIC_ORIGIN"],
                     )
-            item = state["services"].get(service)
-            existing = bool(item)
-            if existing:
-                formation = api.get("/apps/" + item["id"] + "/formation")
-                formation.raise_for_status()
-                if len(formation.json()) != 1 or any(
-                    f["size"].lower() != "eco"
-                    or f["type"] != "web"
-                    or f["quantity"] != 1
-                    for f in formation.json()
-                ):
-                    raise RuntimeError(
-                        "Existing application must have exactly one Eco web dyno"
-                    )
-                addons = api.get("/apps/" + item["id"] + "/addons")
-                addons.raise_for_status()
-                if addons.json():
-                    raise RuntimeError("Existing application has unexpected add-ons")
-            if not item:
-                response = api.post(
-                    "/app-setups",
-                    json={
-                        "app": {"name": "coa-puroseka-" + service, "region": "us"},
-                        "source_blob": {"url": archive},
-                        "overrides": {"env": base},
-                    },
-                )
-                response.raise_for_status()
-                setup = response.json()
-                item = {
-                    "app": setup["app"]["name"],
-                    "id": setup["app"]["id"],
-                    "setup_id": setup["id"],
-                    "revision": revision,
-                    "status": setup["status"],
-                }
-                details = api.get("/apps/" + item["id"])
-                details.raise_for_status()
-                item["url"] = details.json()["web_url"].rstrip("/")
-                state["services"][service] = item
-                save(state)
-            if service == "chat":
-                base["PUBLIC_ORIGIN"] = cfg.get("PUBLIC_ORIGIN") or item["url"]
-            response = api.patch("/apps/" + item["id"] + "/config-vars", json=base)
+            path = "/apps/" + item["id"]
+            api.patch(path + "/config-vars", json=base).raise_for_status()
+            api.patch(path, json={"build_stack": manifest["stack"]}).raise_for_status()
+            api.put(
+                path + "/buildpack-installations",
+                json={
+                    "updates": [{"buildpack": b["url"]} for b in manifest["buildpacks"]]
+                },
+            ).raise_for_status()
+            archive = upload(api, item["id"], service, revision)
+            response = api.post(
+                path + "/builds",
+                json={"source_blob": {"url": archive, "version": revision}},
+            )
             response.raise_for_status()
-            if existing:
-                path = "/apps/" + item["id"]
-                api.patch(
-                    path, json={"build_stack": manifest["stack"]}
-                ).raise_for_status()
-                api.put(
-                    path + "/buildpack-installations",
-                    json={
-                        "updates": [
-                            {"buildpack": b["url"]} for b in manifest["buildpacks"]
-                        ]
-                    },
-                ).raise_for_status()
-                response = api.post(
-                    path + "/builds",
-                    json={"source_blob": {"url": archive, "version": revision}},
-                )
-                response.raise_for_status()
-                build = response.json()
-                item["build_id"] = build["id"]
-                save(state)
-                print(
-                    json.dumps(
-                        {
-                            "service": service,
-                            "build": "pending",
-                            "stack": manifest["stack"],
-                        }
-                    ),
-                    flush=True,
-                )
-                for _ in range(180):
-                    response = api.get(path + "/builds/" + build["id"])
-                    response.raise_for_status()
-                    build = response.json()
-                    if build["status"] == "succeeded":
-                        break
-                    if build["status"] == "failed":
-                        raise RuntimeError("Backend build failed for " + service)
-                    time.sleep(3)
-                else:
-                    raise RuntimeError("Build still pending; inspect saved build_id")
-                item["revision"] = revision
-                item["stack"] = manifest["stack"]
-            last = None
-            for _ in range(0 if existing else 100):
-                response = api.get("/app-setups/" + item["setup_id"])
-                response.raise_for_status()
-                setup = response.json()
-                status = setup["status"]
-                if status != last:
-                    print(
-                        json.dumps(
-                            {
-                                "service": service,
-                                "setup": status,
-                                "build": (setup.get("build") or {}).get("status"),
-                            }
-                        ),
-                        flush=True,
-                    )
-                    last = status
-                if status == "failed":
-                    item["status"] = "failed"
-                    save(state)
-                    # API messages contain no configuration values; retain details locally.
-                    error = ROOT / "artifacts/heroku-setup-error.json"
-                    error.write_text(json.dumps(setup))
-                    error.chmod(0o600)
-                    raise RuntimeError(
-                        "Eco app setup failed for " + service + "; see private report"
-                    )
-                if status == "succeeded":
-                    break
-                time.sleep(5)
-            else:
-                if not existing:
-                    raise RuntimeError("Build still pending; resume script to monitor")
-            formation = api.get("/apps/" + item["id"] + "/formation")
-            formation.raise_for_status()
-            if any(
-                f["size"].lower() != "eco" or f["type"] != "web"
-                for f in formation.json()
-            ):
-                # Never resize into an unauthorized class. Stop this app if an unexpected formation appears.
-                for f in formation.json():
-                    api.patch(
-                        "/apps/" + item["id"] + "/formation/" + f["id"],
-                        json={"quantity": 0},
-                    ).raise_for_status()
-                raise RuntimeError("Unexpected formation stopped; deployment halted")
-            addons = api.get("/apps/" + item["id"] + "/addons")
-            addons.raise_for_status()
-            if addons.json():
-                raise RuntimeError("Unexpected add-on; deployment halted")
-            item["status"] = "deployed"
-            item["formation"] = [
-                {"type": f["type"], "size": f["size"], "quantity": f["quantity"]}
-                for f in formation.json()
-            ]
+            build = response.json()
+            item["build_id"] = build["id"]
             save(state)
             print(
                 json.dumps(
-                    {"service": service, "url": item["url"], "size": "Eco", "addons": 0}
+                    {"service": service, "build": "pending", "stack": manifest["stack"]}
+                ),
+                flush=True,
+            )
+            for _ in range(180):
+                response = api.get(path + "/builds/" + build["id"])
+                response.raise_for_status()
+                build = response.json()
+                if build["status"] == "succeeded":
+                    break
+                if build["status"] == "failed":
+                    raise RuntimeError(
+                        "Build failed for " + service + "; inspect saved build_id"
+                    )
+                time.sleep(3)
+            else:
+                raise RuntimeError("Build pending; inspect saved build_id")
+            item.update(
+                revision=revision,
+                stack=manifest["stack"],
+                status="deployed",
+                formation=[{"type": "web", "size": "Eco", "quantity": 1}],
+            )
+            save(state)
+            print(
+                json.dumps(
+                    {
+                        "service": service,
+                        "status": "deployed",
+                        "size": "Eco",
+                        "addons": 0,
+                    }
                 ),
                 flush=True,
             )

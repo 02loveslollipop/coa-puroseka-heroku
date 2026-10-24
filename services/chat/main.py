@@ -1,19 +1,30 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from contextlib import suppress
 from typing import Literal
 from fastapi import FastAPI, HTTPException, Depends, Request, Response, BackgroundTasks
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from psycopg import Error as DatabaseError
-from app.config import settings
-from app.control import control_connection
-from app.inference import infer
-from app import auth, control, tracing
-from app.metering import principal
+from shared.config import settings
+from shared.control_database import control_connection
+from services.chat.inference import infer
+from services.chat import auth, control, tracing
+from services.chat.metering import principal
 from shared.rpc import session_token, call
 from shared.security import database_unavailable
+from shared.demo import DEMO_USERNAME
+
+
+async def retention_loop():
+    while True:
+        try:
+            await asyncio.to_thread(control.clean_demo_jobs)
+        except Exception:
+            logging.getLogger(__name__).warning("Demo retention cleanup will retry.")
+        await asyncio.sleep(600)
 
 
 @asynccontextmanager
@@ -24,7 +35,13 @@ async def lifespan(app):
         logging.getLogger(__name__).warning(
             "Database is not ready; chat jobs cannot start yet."
         )
-    yield
+    maintenance = asyncio.create_task(retention_loop())
+    try:
+        yield
+    finally:
+        maintenance.cancel()
+        with suppress(asyncio.CancelledError):
+            await maintenance
 
 
 app = FastAPI(title="Puroseka Semantic Context PoC", version="1.0.0", lifespan=lifespan)
@@ -168,7 +185,8 @@ async def run_job(job, user, body, audience):
                 )
                 if k in result
             }
-        result["_review"] = review
+        if user["username"] != DEMO_USERNAME:
+            result["_review"] = review
         result["_activity"] = tracing.activity(trace)
         await asyncio.to_thread(control.finish_job, job, jsonable_encoder(result))
     except Exception:
@@ -179,14 +197,20 @@ async def run_job(job, user, body, audience):
                 "status": "error",
                 "answer": "The response was interrupted. Try again.",
                 "_activity": tracing.activity(trace),
-                "_review": {
-                    "input": body,
-                    "output": {
-                        "status": "error",
-                        "answer": "The response was interrupted. Try again.",
-                    },
-                    "calls": trace,
-                },
+                **(
+                    {
+                        "_review": {
+                            "input": body,
+                            "output": {
+                                "status": "error",
+                                "answer": "The response was interrupted. Try again.",
+                            },
+                            "calls": trace,
+                        }
+                    }
+                    if user["username"] != DEMO_USERNAME
+                    else {}
+                ),
             },
         )
     finally:

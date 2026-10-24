@@ -1,3 +1,5 @@
+> Historical migration record. For current setup, service layout and deployment, use [README.md](../README.md). The active deployment now rebuilds only recorded Eco apps with service-specific source bundles; the SQL example set contains six examples.
+
 # Heroku migration plan: ontology, chat, and login services
 
 Status: migration and authenticated production acceptance completed. All 16 source tables, the prepared ontology, and application state were imported into the existing external database under `coa_puroseka`. All source fingerprints and five curated query results matched. Login, ontology access, Base/Enhanced inference, comparisons, daily evolution, reviews, and session/meter persistence after Eco restarts passed. Only three Eco web dynos are deployed; there are no add-ons or other dyno types. AWS remains unchanged.

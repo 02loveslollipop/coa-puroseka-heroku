@@ -59,7 +59,7 @@ The check exercises real service HTTP calls, authentication, CSRF, private-table
 
 ## Eco-only deployment
 
-`app.json` declares exactly one **Eco web dyno** per application and **no add-ons, release commands, postdeploy commands, workers, or one-off dynos**. The deployment script validates that manifest before creating anything. It uses Heroku app-setups to specify Eco sizing before the first web process starts. It never provisions a database, upgrades a plan, changes existing applications, or falls back to a different dyno class.
+`app.json` declares exactly one **Eco web dyno** per application and **no add-ons, release commands, postdeploy commands, workers, or one-off dynos**. The deployment script validates that manifest before creating anything. It uses Heroku app-setups to specify Eco sizing before the first web process starts, and verifies the existing formation before rebuilding recorded apps. It never provisions a database, upgrades a plan, or falls back to a different dyno class.
 
 Authenticate the Heroku CLI, publish the audited source to `coa-puroseka-heroku`, and run:
 

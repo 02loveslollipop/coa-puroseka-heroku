@@ -4,6 +4,7 @@ import { Alert, Box, Button, Container, Form, FormField, Header, Input, SpaceBet
 import { api, setCsrf } from "./api";
 import { AuthContext, Session } from "./auth";
 import { UserChat } from "./chat";
+import { DataAttribution } from "./data-attribution";
 const AdminApp = lazy(() => import("./AdminApp"));
 
 function Login({ onLogin }: { onLogin: (user: Session) => void }) {
@@ -35,6 +36,7 @@ function Login({ onLogin }: { onLogin: (user: Session) => void }) {
         </form>
       </Container>
       <TextContent><Box textAlign="center" color="text-body-secondary">Use the account provided for this demonstration.</Box></TextContent>
+      <DataAttribution />
     </SpaceBetween>
   </div></main>;
 }

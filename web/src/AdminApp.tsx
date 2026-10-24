@@ -23,6 +23,7 @@ import { api, Catalog } from "./api";
 import { TokenSettings } from "./token-settings";
 import { useAuth } from "./auth";
 import { repositoryLink } from "./project";
+import { DataAttribution } from "./data-attribution";
 
 export default function App() {
   const { user, signOut } = useAuth();
@@ -173,6 +174,7 @@ export default function App() {
               color="text-body-secondary"
               fontSize="body-s"
             >
+              <DataAttribution />
               Puroseka proof of concept ·{" "}
               <Link
                 external

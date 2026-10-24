@@ -33,6 +33,10 @@ This repository is separate from the [original AWS application](https://github.c
 
 ## Services and data
 
+### Data source attribution
+
+The source data used by this application is obtained from **[sekai.best datasets (Sekai Viewer)](https://sekai.best/)**. Credit for the supplied datasets belongs to sekai.best and the respective data owners. The ontology definitions, semantic enrichment, and generated English labels are part of this PoC.
+
 | Service | Purpose | Process |
 |---|---|---|
 | Frontend | Static Cloudscape chat and administration; deployed independently on Cloudflare Pages | `web/` |

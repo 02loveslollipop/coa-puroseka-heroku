@@ -6,7 +6,7 @@ AWS Context Ontology Accelerator, release v0.3.7, https://github.com/aws/context
 
 Cloudscape Design System, React, React Flow, React Markdown, FastAPI, Psycopg, SQLGlot, RDFLib, and HTTPX retain their respective licenses, distributed with installed packages. Package versions are recorded in the npm lockfile and Python requirements.
 
-Dataset ownership and source provenance remain with the supplied metadata; this project does not assert ownership or official game affiliation. Generated translations are approximate convenience labels, not official localization.
+The source data used by this application is obtained from [sekai.best datasets (Sekai Viewer)](https://sekai.best/). Dataset ownership and source provenance remain with sekai.best and the respective data owners; this project does not assert ownership or official game affiliation. Generated translations are approximate convenience labels, not official localization.
 
 Token reservations use `tiktoken` (MIT) with the public Ministral 3 8B Tekken vocabulary (Apache-2.0). The vocabulary is downloaded from the official Mistral repository at a pinned revision and verified by SHA-256; it is not committed here. Text-only encoding follows the format documented by [mistral-common](https://github.com/mistralai/mistral-common/blob/main/src/mistral_common/tokens/tokenizers/tekken.py).
 

@@ -9,6 +9,7 @@
 }
 .login-page { min-height: 100dvh; display: grid; place-items: center; padding: 24px; box-sizing: border-box; }
 .login-card { width: min(100%, 460px); }
+#top-navigation, #chat-top-navigation { position: sticky; inset-block-start: 0; z-index: 1002; }
 .sidebar-layout { block-size: 100%; display: flex; flex-direction: column; }
 .sidebar-navigation { flex: 1; min-block-size: 0; overflow-y: auto; }
 .sidebar-attribution { flex: none; }

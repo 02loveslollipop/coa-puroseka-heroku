@@ -2,15 +2,17 @@
 
 from fastapi import FastAPI, Depends, Request
 from pydantic import BaseModel, Field
+from psycopg import Error as DatabaseError
 from app import local_auth
 from app.control import control_connection
 from app.database import namespace
-from shared.security import require_service, headers
+from shared.security import require_service, headers, database_unavailable
 
 app = FastAPI(
     title="COA login service", docs_url=None, redoc_url=None, openapi_url=None
 )
 app.middleware("http")(headers)
+app.add_exception_handler(DatabaseError, database_unavailable)
 
 
 def trusted(request: Request):

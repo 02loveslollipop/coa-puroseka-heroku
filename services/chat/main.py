@@ -8,12 +8,14 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
+from psycopg import Error as DatabaseError
 from app.config import settings
 from app.control import control_connection
 from app.inference import infer
 from app import auth, control, tracing
 from app.metering import principal
 from shared.rpc import session_token, call
+from shared.security import database_unavailable
 
 
 @asynccontextmanager
@@ -28,6 +30,7 @@ async def lifespan(app):
 
 
 app = FastAPI(title="Puroseka Semantic Context PoC", version="1.0.0", lifespan=lifespan)
+app.add_exception_handler(DatabaseError, database_unavailable)
 _inflight = asyncio.Semaphore(2)
 
 

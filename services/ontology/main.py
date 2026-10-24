@@ -4,16 +4,18 @@ from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from psycopg import sql
+from psycopg import Error as DatabaseError
 from app.config import artifact
 from app.database import connection, physical_schema, preview, schema_name
 from app.query import execute_query, QueryRejected
-from shared.security import require_service, headers
+from shared.security import require_service, headers, database_unavailable
 from shared.rpc import call
 
 app = FastAPI(
     title="COA ontology service", docs_url=None, redoc_url=None, openapi_url=None
 )
 app.middleware("http")(headers)
+app.add_exception_handler(DatabaseError, database_unavailable)
 
 
 def user(request: Request):

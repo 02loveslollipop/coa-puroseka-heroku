@@ -2,7 +2,16 @@
 
 import hmac
 from fastapi import HTTPException, Request
+from fastapi.responses import JSONResponse
 from app.config import settings
+
+
+async def database_unavailable(request, exc):
+    return JSONResponse(
+        {"detail": "The service is temporarily unavailable. Try again."},
+        status_code=503,
+        headers={"Retry-After": "5"},
+    )
 
 
 def require_service(request: Request, key: str):

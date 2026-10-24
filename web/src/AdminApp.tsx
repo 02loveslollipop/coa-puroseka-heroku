@@ -54,13 +54,15 @@ export default function App() {
         <TopNavigation
           identity={{ href: "/admin/sources", title: "Puroseka · COA administration" }}
           utilities={[
-            { type: "button", text: "Open chat", href: "/" },
             {
               type: "button",
               text: dark ? "Light mode" : "Dark mode",
               onClick: () => setDark(!dark),
             },
-            { type: "menu-dropdown", text: user.username, items: [{ id: "logout", text: "Sign out" }], onItemClick: () => void signOut() },
+            { type: "menu-dropdown", text: user.username, items: [
+              { id: "chat", text: "Open chat", href: "/" },
+              { id: "logout", text: "Sign out" },
+            ], onItemClick: ({ detail }) => { if (detail.id === "logout") void signOut(); } },
             repositoryLink,
           ]}
         />

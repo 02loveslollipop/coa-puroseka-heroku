@@ -103,6 +103,10 @@ def ranking_answer(evidence):
     if not rows:
         return "No matching ranking observations were returned for this question."
     columns = list(dict.fromkeys(key for row in rows for key in row))
+    # Full provenance remains in the SQL/review evidence, rather than crowding
+    # an end-user ranking table. Retain it when it is the only requested output.
+    visible = [c for c in columns if c not in {"row_key", "raw_record", "source_file"}]
+    columns = visible or columns
     score = next(
         (key for key in ("score", "last_observed_score") if key in columns), None
     )

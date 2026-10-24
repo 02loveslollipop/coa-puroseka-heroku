@@ -119,3 +119,22 @@ def test_fractional_comparison_does_not_round_evidence():
         }
     )
     assert "42.5" in answer and "1.5 points" in answer
+
+
+def test_provenance_stays_in_review_evidence_without_crowding_answer():
+    rows = [
+        {
+            "event_id": 1,
+            "rank": 100,
+            "score": 50,
+            "row_key": "private-row-key",
+            "source_file": "internal/source.json",
+            "raw_record": {"original": True},
+        }
+    ]
+    answer = ranking_answer({"rows": rows})
+    assert "private-row-key" not in answer and "internal/source.json" not in answer
+    assert rows[0]["raw_record"] == {"original": True}
+    assert "private-row-key" in ranking_answer(
+        {"rows": [{"row_key": "private-row-key"}]}
+    )

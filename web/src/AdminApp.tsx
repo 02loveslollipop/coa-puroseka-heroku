@@ -10,7 +10,6 @@ import {
   BreadcrumbGroup,
   Flashbar,
   Box,
-  Link,
 } from "@cloudscape-design/components";
 import {
   applyMode,
@@ -91,53 +90,58 @@ export default function App() {
           ) : undefined
         }
         navigation={
-          <SideNavigation
-            activeHref={location.pathname}
-            header={{ href: "/admin/sources", text: "COA administration" }}
-            onFollow={(event) => {
-              if (!event.detail.external) {
-                event.preventDefault();
-                navigate(event.detail.href);
-              }
-            }}
-            items={[
-              {
-                type: "section",
-                text: "Scan",
-                items: [{ type: "link", text: "Data sources", href: "/admin/sources" }],
-              },
-              {
-                type: "section",
-                text: "Model",
-                items: [
-                  {
-                    type: "link",
-                    text: "Ontology explorer",
-                    href: "/admin/ontology",
-                  },
-                ],
-              },
-              {
-                type: "section",
-                text: "Serve",
-                items: [
-                  {
-                    type: "link",
-                    text: "Inference playground",
-                    href: "/admin/playground",
-                  },
-                ],
-              },
-              { type: "section", text: "Manage", items: [{ type: "link", text: "Token limits", href: "/admin/access" }] },
-              { type: "divider" },
-              {
-                type: "link",
-                text: "Cloudscape components",
-                href: "https://github.com/cloudscape-design/components",
-                external: true,
-              },
-            ]}
-          />
+          <>
+            <SideNavigation
+              activeHref={location.pathname}
+              header={{ href: "/admin/sources", text: "COA administration" }}
+              onFollow={(event) => {
+                if (!event.detail.external) {
+                  event.preventDefault();
+                  navigate(event.detail.href);
+                }
+              }}
+              items={[
+                {
+                  type: "section",
+                  text: "Scan",
+                  items: [{ type: "link", text: "Data sources", href: "/admin/sources" }],
+                },
+                {
+                  type: "section",
+                  text: "Model",
+                  items: [
+                    {
+                      type: "link",
+                      text: "Ontology explorer",
+                      href: "/admin/ontology",
+                    },
+                  ],
+                },
+                {
+                  type: "section",
+                  text: "Serve",
+                  items: [
+                    {
+                      type: "link",
+                      text: "Inference playground",
+                      href: "/admin/playground",
+                    },
+                  ],
+                },
+                { type: "section", text: "Manage", items: [{ type: "link", text: "Token limits", href: "/admin/access" }] },
+                { type: "divider" },
+                {
+                  type: "link",
+                  text: "Cloudscape components",
+                  href: "https://github.com/cloudscape-design/components",
+                  external: true,
+                },
+              ]}
+            />
+            <Box padding={{ horizontal: "l", vertical: "l" }}>
+              <DataAttribution />
+            </Box>
+          </>
         }
         breadcrumbs={
           <BreadcrumbGroup
@@ -174,15 +178,7 @@ export default function App() {
               color="text-body-secondary"
               fontSize="body-s"
             >
-              <DataAttribution />
-              Puroseka proof of concept ·{" "}
-              <Link
-                external
-                href="https://github.com/cloudscape-design/components"
-              >
-                Cloudscape Design System
-              </Link>{" "}
-              · Fixed ontology, one-time enrichment
+              Puroseka proof of concept · Fixed ontology, one-time enrichment
             </Box>
           </>
         }

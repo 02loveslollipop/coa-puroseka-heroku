@@ -1,14 +1,16 @@
 """Deploy only audited static web/dist assets to Cloudflare Pages.
 
-cf manages projects, deployment creation, custom domains and DNS. The installed
+cf manages projects, deployment status, custom domains and DNS. The installed
 CLI has no asset-upload command; its short-lived upload JWT authorizes the three
-Pages asset endpoints used below. OAuth tokens are never read or copied.
+Pages asset endpoints used below. Deployment metadata containing headers needs
+the multipart API because cf cannot attach those files. No tokens are persisted.
 """
 
 import base64
 import hashlib
 import json
 import mimetypes
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -24,6 +26,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def deploy():
+    if subprocess.check_output(
+        ["git", "status", "--porcelain"], cwd=ROOT, text=True
+    ).strip():
+        raise ValueError("Commit and audit source before deploying the frontend")
     dist = ROOT / "web/dist"
     secrets = configured_secrets()
     assets = {}
@@ -109,21 +115,37 @@ def deploy():
     revision = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
     ).strip()
-    deployment = cf(
-        "pages",
-        "projects",
-        "deployments",
-        "create",
-        PROJECT,
-        account=account,
-        body={
-            "branch": "main",
-            "commit_hash": revision,
-            "commit_dirty": "false",
-            "manifest": json.dumps({k: v["key"] for k, v in assets.items()}),
-            **special,
-        },
+    # cf --body becomes a literal "body" multipart field; its generated flags
+    # cannot attach _headers/_redirects. Use the same authenticated cf session
+    # for this payload, while cf manages all resource/domain/DNS operations.
+    identity = cf("auth", "whoami")
+    bearer = os.getenv("CLOUDFLARE_API_TOKEN")
+    if not bearer:
+        source = identity.get("authSource", "")
+        prefix = "OAuth token from "
+        if not identity.get("authenticated") or not source.startswith(prefix):
+            raise RuntimeError(
+                "An authenticated cf OAuth profile or API token is required"
+            )
+        bearer = json.loads(Path(source[len(prefix) :]).read_text())["oauth_token"]
+    fields = {
+        "branch": (None, "main"),
+        "commit_hash": (None, revision),
+        "commit_dirty": (None, "false"),
+        "manifest": (None, json.dumps({k: v["key"] for k, v in assets.items()})),
+        **{k: (k, v, "text/plain") for k, v in special.items()},
+    }
+    response = httpx.post(
+        f"https://api.cloudflare.com/client/v4/accounts/{account}/pages/projects/{PROJECT}/deployments",
+        headers={"Authorization": "Bearer " + bearer},
+        files=fields,
+        timeout=60,
     )
+    response.raise_for_status()
+    data = response.json()
+    if not data.get("success"):
+        raise RuntimeError("Pages multipart deployment failed")
+    deployment = data["result"]
     print(
         json.dumps(
             {"project": PROJECT, "deployment": deployment["id"], "assets": len(assets)}
@@ -150,7 +172,15 @@ def deploy():
     else:
         raise RuntimeError("Pages deployment still pending")
     dns = dns_only(z, FRONTEND, PROJECT + ".pages.dev")
-    domains = cf("pages", "projects", "domains", "list", PROJECT, account=account)
+    domains = cf(
+        "pages",
+        "projects",
+        "domains",
+        "list",
+        "--project-name",
+        PROJECT,
+        account=account,
+    )
     if not any(d["name"] == FRONTEND for d in domains):
         cf(
             "pages",

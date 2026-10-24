@@ -62,6 +62,11 @@ JSON_FILES = {
 
 def configured_secrets():
     values = set()
+    for profile in (Path.home() / ".config/cloudflare/config").glob("*.json"):
+        data = json.loads(profile.read_text())
+        for key in ("oauth_token", "refresh_token"):
+            if data.get(key):
+                values.add(data[key])
     for path in [
         ROOT / ".env",
         Path(os.environ.get("PRIVATE_REFERENCE_ENV", str(ROOT / ".env"))),

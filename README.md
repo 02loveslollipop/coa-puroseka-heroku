@@ -86,7 +86,7 @@ VITE_API_ORIGIN=https://api.coa.puroseka.02labs.me npm --prefix web run build
 .venv/bin/python scripts/verify_deployment.py --live-model
 ```
 
-`deploy_frontend.py` uploads only checked static output from `web/dist`; it refuses unexpected files and configured secret values. It uses `cf` for project, deployment, custom-domain and DNS operations. The installed CLI does not expose asset upload, so the uploader calls the Pages asset API with a short-lived JWT obtained through `cf`. No OAuth token is copied into the project or deployment. Git integration is not required. Conflicting existing DNS records are left untouched. Deployment receipts remain in ignored `.deploy/`.
+`deploy_frontend.py` uploads only checked static output from `web/dist`; it refuses unexpected files and configured secret values. It uses `cf` for project, deployment-status, custom-domain and DNS operations. The installed CLI cannot upload assets or attach deployment header/redirect files. These payloads use the Pages API with the authenticated `cf` session; asset requests use its short-lived upload JWT. No OAuth token is saved in the project or deployment. Git integration is not required. Conflicting existing DNS records are left untouched. Deployment receipts remain in ignored `.deploy/`.
 
 Eco dynos sleep after inactivity and share the account's 1,000-hour monthly pool. Dependency services can also need time to wake; the UI reports temporary service unavailability and allows retry. There are no keep-alive jobs. Eco is intended for this small demo, not continuous availability. [Heroku Eco behavior](https://devcenter.heroku.com/articles/eco-dyno-hours).
 

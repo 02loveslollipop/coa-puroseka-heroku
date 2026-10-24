@@ -21,9 +21,20 @@ function Login({ onLogin }: { onLogin: (user: Session) => void }) {
     } catch (e) { setError((e as Error).message); }
     finally { setBusy(false); }
   }
-  return <main className="login-page"><div className="login-card">
+  return <main className="login-page">
+    <section className="login-visual" aria-label="Puroseka">
+      {/* Static background mock; the animation will be added in a later iteration. */}
+      <svg className="login-visual-graph" viewBox="0 0 900 900" fill="none" aria-hidden="true">
+        <g stroke="currentColor" strokeWidth="2">
+          <path d="M100 160 360 240 640 130 810 350 620 540 760 760 430 700 170 790 100 530 360 460 360 240M100 160 100 530M360 240 620 540 430 700 360 460 100 530M640 130 620 540M360 460 810 350M170 790 430 700" />
+          {[[100,160],[360,240],[640,130],[810,350],[620,540],[760,760],[430,700],[170,790],[100,530],[360,460]].map(([cx,cy]) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="15" />)}
+        </g>
+      </svg>
+      <div className="login-brand"><h1>Puroseka</h1><p>Explore events through conversation.</p></div>
+    </section>
+    <section className="login-panel" aria-label="Sign in">
+    <div className="login-card">
     <SpaceBetween size="l">
-      <Box textAlign="center"><Box variant="h1">Puroseka</Box><Box color="text-body-secondary">Explore events through conversation</Box></Box>
       <Container header={<Header variant="h2">Sign in</Header>}>
         <form onSubmit={(event) => { event.preventDefault(); void submit(); }}>
           <Form actions={<Button variant="primary" formAction="submit" loading={busy} disabled={!username.trim() || !password}>Sign in</Button>}>
@@ -38,7 +49,7 @@ function Login({ onLogin }: { onLogin: (user: Session) => void }) {
       <TextContent><Box textAlign="center" color="text-body-secondary">Use the account provided for this demonstration.</Box></TextContent>
       <DataAttribution />
     </SpaceBetween>
-  </div></main>;
+  </div></section></main>;
 }
 
 export default function App() {

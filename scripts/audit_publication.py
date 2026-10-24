@@ -23,6 +23,7 @@ ROOT_FILES = {
     ".env.example",
     ".python-version",
     "README.md",
+    "TODO.md",
     "LICENSE",
     "NOTICE",
     "THIRD_PARTY.md",

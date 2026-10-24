@@ -10,9 +10,9 @@ Open **[Puroseka chat](https://chat.coa.puroseka.02labs.me/)**.
 
 | Email | Password | Shared allowance |
 |---|---|---|
-| `demo@02labs.me` | `demo1234` | 25,000 input/output tokens per six-hour window |
+| `demo@02labs.me` | `demo1234` | 100,000 input/output tokens per six-hour window (admin configurable) |
 
-These credentials are intentionally public. All visitors share the allowance: approximately 100,000 tokens across four windows, including both responses in A/B mode. The reset time is shown in chat. The Mistral sandbox has its own limits; Eco services may take time to wake up.
+These credentials are intentionally public. All visitors share the allowance: approximately 400,000 tokens across four windows, including both responses in A/B mode. The reset time is shown in chat. The Mistral sandbox has its own limits; Eco services may take time to wake up.
 
 Choose **Enhanced** for ontology context, **No enhancement** for the physical schema, or **A/B testing** to compare both using `ministral-8b-latest`. Try:
 
@@ -34,7 +34,7 @@ The imported snapshot has **180 events**, 1,229 cards, 26 characters, 950 event-
 
 ![Styled ontology relationship graph](docs/ontology-relations.svg)
 
-Arrows connect a referencing table to its referenced entity. Labels are a separate lookup by entity type and ID, rather than an asserted foreign key. The editable diagram source is [ontology-relations.dot](docs/ontology-relations.dot).
+The diagram was regenerated from the supplied `puroseka-1.1.0` Turtle ontology: **16 classes, 15 object properties, 185 datatype properties and 850 RDF triples**. Its arrangement follows the supplied application screenshot. Arrows connect each object property’s domain to its range; labels remain a separate lookup by entity type and ID. The public diagram contains schema metadata only. The editable graph source is [ontology-relations.dot](docs/ontology-relations.dot); regenerate it from a local Turtle file with [render_ontology_diagram.py](scripts/render_ontology_diagram.py).
 
 The fixed `puroseka-1.1.0` release contains:
 
@@ -66,12 +66,26 @@ Curated definitions live in [services/ontology/semantic/](services/ontology/sema
 
 ```mermaid
 flowchart LR
-    UI[Cloudscape chat and admin<br/>Cloudflare Pages] --> Chat[Chat API<br/>Heroku Eco]
-    Chat --> Login[Login service<br/>Heroku Eco]
-    Chat --> Ontology[Ontology service<br/>Heroku Eco]
-    Chat --> Model[Mistral sandbox<br/>Ministral 8B]
+    subgraph Cloudflare
+        UI[Cloudscape chat and admin]
+    end
+    subgraph Heroku
+        Chat[Chat API]
+        Login[Login service]
+        Ontology[Ontology service]
+    end
+    subgraph Northflank
+        DB[(Existing PostgreSQL<br/>coa_puroseka schema)]
+    end
+    subgraph Mistral
+        Model[Ministral 8B sandbox]
+    end
+    UI --> Chat
+    Chat --> Login
+    Chat --> Ontology
+    Chat --> Model
     Ontology --> Login
-    Chat --> DB[(Existing PostgreSQL<br/>coa_puroseka schema)]
+    Chat --> DB
     Login --> DB
     Ontology --> DB
     classDef frontend fill:#e1efff,stroke:#3976b7,color:#102a43
@@ -89,7 +103,17 @@ flowchart LR
 - `web/`: independent React/Cloudscape frontend and its Node dependencies.
 - `infra/`, `scripts/`, `tests/`: deployment, operator tooling and verification.
 
+SQL generation uses a bounded JSON schema (`sql` and a short `reason`) with a 4,096-token output cap, separate from the account allowance. Answer generation retains a 1,800-token cap. Incomplete JSON is rejected; complete schema-valid plans with trailing whitespace are accepted even if the provider reports a length stop. Every call reserves its configured output allowance and charges actual provider usage.
+
 Enhanced requests add definitions, relationships, rules, coverage, relevant labels and six examples to the physical schema. SQL runs through an AST allowlist, read-only transactions, timeouts and output bounds. Syntax/schema errors receive at most one metered correction attempt; rejected unsafe queries and service outages are never retried by the model. Ranking answers format returned evidence deterministically.
+
+## SQL firewall
+
+Every model-generated query passes through the ontology service's [SQL firewall](services/ontology/firewall.py) before execution. It accepts one SELECT using approved source tables, query constructs, built-in functions and built-in cast types. It rejects writes, schema changes, writable CTEs, SELECT INTO, row locks, stacked statements, private/system tables, schema-qualified functions, custom operators/types and unreviewed syntax. Rejected queries are not retried with weaker rules. Comments are removed and query length, AST size and nesting are bounded.
+
+Source connections start with `default_transaction_read_only=on`, and each generated query also explicitly uses a read-only transaction. The search path is restricted to `pg_catalog`; approved physical tables are explicitly schema-qualified, so application functions cannot shadow built-ins. The runtime account cannot write to the imported dataset tables. Login, chat jobs and token accounting use a separate controlled connection; generated SQL cannot access those tables. Existing 15-second execution, one-second lock, 100-row and 24 KB evidence limits remain in place. These are application and PostgreSQL controls, independent of the model's prompt.
+
+Adversarial regression tests cover mutation attempts, hidden writes and function/operator/type bypasses. Disposable local PostgreSQL tests verify that writes fail even with a write-capable test account and that a shadow function is never called. No additional cloud firewall service or resource is required.
 
 ## Setup and deployment
 

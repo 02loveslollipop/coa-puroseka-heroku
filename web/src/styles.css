@@ -10,8 +10,20 @@
   max-height: 32rem;
   overflow: auto;
 }
-.login-page { min-height: 100dvh; display: grid; place-items: center; padding: 24px; box-sizing: border-box; }
+.login-page { min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.login-visual { position: relative; isolation: isolate; display: flex; align-items: center; overflow: hidden; padding: clamp(32px, 6vw, 96px); color: #fff; background: radial-gradient(ellipse at 20% 80%, #21547b 0, transparent 65%), linear-gradient(145deg, #07152b, #173b59); }
+.login-visual-graph { position: absolute; inset: 0; width: 100%; height: 100%; color: #93d7ed; opacity: 0.2; z-index: -1; }
+.login-brand { max-width: 560px; }
+.login-brand h1 { margin: 0 0 24px; font-size: clamp(36px, 4vw, 64px); line-height: 1.1; letter-spacing: -0.03em; }
+.login-brand p { margin: 0; font-size: clamp(22px, 2.4vw, 36px); line-height: 1.35; }
+.login-panel { display: grid; place-items: center; min-width: 0; padding: clamp(20px, 3vw, 48px); box-sizing: border-box; }
 .login-card { width: min(100%, 460px); }
+@media (max-width: 900px) {
+  .login-page { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(220px, 30dvh) 1fr; }
+  .login-visual { padding: 32px; }
+  .login-brand h1 { margin-bottom: 16px; }
+  .login-panel { padding: 32px 20px; }
+}
 #top-navigation, #chat-top-navigation { position: sticky; inset-block-start: 0; z-index: 1002; }
 .sidebar-layout { block-size: 100%; display: flex; flex-direction: column; }
 .sidebar-navigation { flex: 1; min-block-size: 0; overflow-y: auto; }

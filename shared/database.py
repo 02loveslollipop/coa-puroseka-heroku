@@ -25,7 +25,13 @@ def connection():
         raise RuntimeError("Database connection capacity reached")
     try:
         with connect(
-            settings()["DATABASE_URL"], connect_timeout=8, row_factory=dict_row
+            settings()["DATABASE_URL"],
+            connect_timeout=8,
+            row_factory=dict_row,
+            # Source/ontology reads never share the writable control connection.
+            # Approved tables are qualified explicitly; only built-ins resolve
+            # through the search path, preventing application-function shadowing.
+            options="-c default_transaction_read_only=on -c search_path=pg_catalog",
         ) as conn:
             yield conn
     finally:

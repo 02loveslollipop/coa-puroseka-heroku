@@ -7,7 +7,7 @@ import remarkGfm from "remark-gfm";
 import { Activity, api, ExecutionProgress, runInference, TokenUsage } from "./api";
 import { useAuth } from "./auth";
 import { repositoryLink } from "./project";
-import { DataAttribution } from "./data-attribution";
+import { Sidebar } from "./sidebar";
 const ResponseExecution = lazy(() => import("./review"));
 
 type Variant = "base" | "enriched";
@@ -159,7 +159,7 @@ export function UserChat() {
     ]} /></div>
     <AppLayout headerSelector="#chat-top-navigation" toolsHide disableContentPaddings
       ariaLabels={{ navigation: "Chat settings and conversations", navigationToggle: "Toggle chat sidebar", navigationClose: "Close chat sidebar" }}
-      navigation={<SpaceBetween size="l"><Box padding={{ top: "l", horizontal: "l" }}><SpaceBetween size="m">
+      navigation={<Sidebar><SpaceBetween size="l"><Box padding={{ top: "l", horizontal: "l" }}><SpaceBetween size="m">
         <Button fullWidth iconName="add-plus" disabled={busy} onClick={() => startNew()}>New chat</Button>
         <Button fullWidth iconName="remove" disabled={busy} onClick={() => setChatToDelete(current)}>Delete chat</Button>
         <Header variant="h3">Chat settings</Header>
@@ -171,7 +171,7 @@ export function UserChat() {
         header={{ text: "Recent chats", href: "/" }} activeHref={`#${active}`}
         onFollow={(event) => { event.preventDefault(); const id = event.detail.href.slice(1); if (threads.some(t => t.id === id)) { setActive(id); stickToBottom.current = true; } }}
         items={threads.map(t => ({ type: "link", text: t.title, href: `#${t.id}` }))}
-      /><Box padding={{ horizontal: "l", bottom: "l" }}><DataAttribution /></Box></SpaceBetween>}
+      /></SpaceBetween></Sidebar>}
       content={<div className="chat-workspace" ref={workspace}>
         <div className="chat-heading"><Header variant="h1" description="Explore event rankings, compare progress, and discover connections.">Puroseka assistant</Header></div>
         <div className="conversation-log" ref={log} role="region" aria-label="Chat" onScroll={() => {

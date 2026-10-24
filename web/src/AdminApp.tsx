@@ -9,7 +9,6 @@ import {
   TopNavigation,
   BreadcrumbGroup,
   Flashbar,
-  Box,
 } from "@cloudscape-design/components";
 import {
   applyMode,
@@ -22,7 +21,7 @@ import { api, Catalog } from "./api";
 import { TokenSettings } from "./token-settings";
 import { useAuth } from "./auth";
 import { repositoryLink } from "./project";
-import { DataAttribution } from "./data-attribution";
+import { Sidebar } from "./sidebar";
 
 export default function App() {
   const { user, signOut } = useAuth();
@@ -90,7 +89,7 @@ export default function App() {
           ) : undefined
         }
         navigation={
-          <>
+          <Sidebar>
             <SideNavigation
               activeHref={location.pathname}
               header={{ href: "/admin/sources", text: "COA administration" }}
@@ -129,19 +128,9 @@ export default function App() {
                   ],
                 },
                 { type: "section", text: "Manage", items: [{ type: "link", text: "Token limits", href: "/admin/access" }] },
-                { type: "divider" },
-                {
-                  type: "link",
-                  text: "Cloudscape components",
-                  href: "https://github.com/cloudscape-design/components",
-                  external: true,
-                },
               ]}
             />
-            <Box padding={{ horizontal: "l", vertical: "l" }}>
-              <DataAttribution />
-            </Box>
-          </>
+          </Sidebar>
         }
         breadcrumbs={
           <BreadcrumbGroup

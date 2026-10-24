@@ -8,4 +8,6 @@ Cloudscape Design System, React, React Flow, React Markdown, FastAPI, Psycopg, S
 
 Dataset ownership and source provenance remain with the supplied metadata; this project does not assert ownership or official game affiliation. Generated translations are approximate convenience labels, not official localization.
 
+Token reservations use `tiktoken` (MIT) with the public Ministral 3 8B Tekken vocabulary (Apache-2.0). The vocabulary is downloaded from the official Mistral repository at a pinned revision and verified by SHA-256; it is not committed here. Text-only encoding follows the format documented by [mistral-common](https://github.com/mistralai/mistral-common/blob/main/src/mistral_common/tokens/tokenizers/tekken.py).
+
 The UI now consumes Cloudscape components directly, following its official repository README and patterns. Source inspection checkout: `cloudscape-design/components` at `43480f95a039d3f48a35d13f6ec44df4e4830e2f`. The application uses the official npm packages for components, global styles, design tokens, collection hooks, code view and chat components. Exact versions are in `web/package-lock.json`. Cloudscape packages are Apache-2.0.

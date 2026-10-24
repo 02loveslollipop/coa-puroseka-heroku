@@ -38,10 +38,13 @@ async def complete(messages, json_mode=False):
 
     try:
         if username:
+            amount = await asyncio.to_thread(
+                reservation_size, messages, payload["max_tokens"]
+            )
             reservation = await asyncio.to_thread(
                 control.reserve,
                 username,
-                reservation_size(messages, payload["max_tokens"]),
+                amount,
             )
         content, usage = await _request(payload, key, usage_charge)
         tracing.finish(call, {"content": content, "usage": usage})

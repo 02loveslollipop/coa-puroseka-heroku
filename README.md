@@ -2,11 +2,34 @@
 
 Frontend: [chat](https://chat.coa.puroseka.02labs.me/) · [administration](https://chat.coa.puroseka.02labs.me/admin/sources). Browser API: [health](https://api.coa.puroseka.02labs.me/api/health).
 
-The migration is complete: the source dataset, fixed ontology, and application state are stored in the new schema of the existing external PostgreSQL database. Sign in with the previously configured email/password. Base and Enhanced responses, event comparison, daily evolution, Review mode, and durable sessions/metering have passed production checks. All three applications use Eco web dynos with no add-ons. Token enforcement remains off. The AWS application has not been changed or shut down.
+The migration is complete: the source dataset, fixed ontology, and application state are stored in the new schema of the existing external PostgreSQL database. Base and Enhanced responses, event comparison, daily evolution, Review mode, and durable sessions/metering have passed production checks. All three applications use Eco web dynos with no add-ons. The public demo has token enforcement enabled; the private administrator's enforcement remains off. The AWS application has not been changed or shut down.
+
+## Try the public demo
+
+Open **[Puroseka chat](https://chat.coa.puroseka.02labs.me/)** and sign in:
+
+| Field | Public testing value |
+|---|---|
+| Email | `demo@02labs.me` |
+| Password | `demo1234` |
+| Allowance | **25,000 tokens per six-hour window** — about **100,000 over four windows** |
+| Access | Chat, Base/Enhanced responses, and A/B testing |
+
+These credentials are intentionally public. This is a shared chat-only account: all visitors consume the same allowance. Administration, source previews, ontology downloads, full JSON Review mode, and token-policy changes require the private administrator account.
+
+Input and output tokens count toward the allowance, including both sides of an A/B comparison. Unused allowance does not carry over. When a response cannot fit within the remaining allowance, wait until the reset time displayed in chat; there is no additional six-hour delay after that reset. Requests reserve prompt tokens and maximum response capacity before calling Mistral, then settle against provider-reported usage. The shared Mistral sandbox can also reach its own quota.
+
+Try these questions in Enhanced mode:
+
+- Compare rank 100 progression in events 1 and 2 by elapsed event day.
+- Show the daily score evolution at rank 100 in event 1.
+- Which characters have cards associated with event 1?
+
+Operators can provision or reapply this account with `.venv/bin/python scripts/provision_demo.py`, using the ignored operator database configuration. Rerunning it preserves consumed tokens and reservations; application restarts and deployments do not reset the allowance.
 
 Three small services demonstrate a fixed context ontology, semantic enrichment, and NL2SQL over the complete prepared Puroseka dataset. The UI uses Cloudscape components and AI chat patterns. The same `ministral-8b-latest` model supports Base, Enhanced, and A/B comparison, with tool activity, SQL evidence, and administrator Review mode. Ranking answers present the returned SQL rows and calculate score comparisons in code. This avoids a second model narration adding unsupported causes or reversing numeric comparisons; generated SQL still needs evidence review.
 
-This repository is separate from the [original AWS application](https://github.com/02loveslollipop/coa-puroseka). It contains source code and hand-authored semantic examples only. Source records, generated ontology artifacts, translations, database dumps, credentials, and operational reports remain private and ignored.
+This repository is separate from the [original AWS application](https://github.com/02loveslollipop/coa-puroseka). It contains source code, hand-authored semantic examples, and the explicitly public demo credentials above. Source records, generated ontology artifacts, translations, database dumps, private credentials, and operational reports remain private and ignored.
 
 ## Services and data
 
@@ -21,7 +44,9 @@ All three use the existing external PostgreSQL database in a new `coa_puroseka` 
 
 The dataset contains 180 events, 1,229 cards, 26 characters, 950 event-card associations, 815 gachas, 2,250 labels, and **all 1,117,619 available ranking observations**. Ranking records cover 142 events; missing histories for the remaining events are retained as coverage information, never invented or treated as zero. Original JSON and provenance are preserved. Five curated examples demonstrate comparisons and gap-aware daily evolution.
 
-There is no enrichment agent or automatic ontology generation at runtime. The prepared `puroseka-1.1.0` release is imported once. Token metering persists in PostgreSQL; **enforcement remains off**, with 100,000 tokens/hour parked as the configurable allowance. The same email/password opens chat and administration; no Cognito access is required.
+There is no enrichment agent or automatic ontology generation at runtime. The prepared `puroseka-1.1.0` release is imported once. Token metering and per-account enforcement persist in PostgreSQL. The demo is limited to **25,000 tokens every six hours**. The private administrator retains enforcement **off**, with 100,000 tokens/hour parked as the configurable allowance. The administrator's email/password opens chat and administration; no Cognito access is required.
+
+Prompt reservations count text locally with the deployed Ministral 8B revision's checksum-pinned Tekken vocabulary, plus chat-template safety margin and maximum output. This lets Enhanced prompts fit the demo allowance while reserving capacity before requests run. Unknown model revisions or tokenizer failures retain the conservative byte-based reservation. Actual charges use Mistral's reported total tokens. The vocabulary is cached in temporary storage and is not published in this repository; token counting sends no prompts or data to the vocabulary host.
 
 ## Local setup and checks
 
@@ -36,7 +61,7 @@ VITE_API_ORIGIN=https://api.coa.puroseka.02labs.me npm --prefix web run build
 .venv/bin/python -m pytest -q
 ```
 
-Populate the ignored `.env` locally. Never put credentials in shell arguments, Git, screenshots, or issue text. `MIGRATION_DATABASE_URL` selects the existing destination and runtime account. When that account cannot provision schemas, set `MIGRATION_ADMIN_DATABASE_URL` locally to an owner/admin connection to the same database. The importer then keeps schema ownership with the operator and grants runtime access without source-data writes. The admin connection is never sent to Heroku. `SOURCE_DATABASE_URL` selects a restored private source snapshot. `SOURCE_ARTIFACT_DIR` holds the prepared catalog, manifests, labels, SQL examples, and Turtle file. The repository does not distribute these generated artifacts.
+Populate the ignored `.env` locally. Never put private credentials in shell arguments, Git, screenshots, or issue text. `MIGRATION_DATABASE_URL` selects the existing destination and runtime account. When that account cannot provision schemas, set `MIGRATION_ADMIN_DATABASE_URL` locally to an owner/admin connection to the same database. The importer then keeps schema ownership with the operator and grants runtime access without source-data writes. The admin connection is never sent to Heroku. `SOURCE_DATABASE_URL` selects a restored private source snapshot. `SOURCE_ARTIFACT_DIR` holds the prepared catalog, manifests, labels, SQL examples, and Turtle file. The repository does not distribute these generated artifacts.
 
 Before a production import, take and restore-check a backup of the existing target database. Then run:
 

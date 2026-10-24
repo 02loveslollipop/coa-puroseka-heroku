@@ -1,7 +1,7 @@
 """Local prompt counting for the deployed Ministral 8B revision.
 
-Only a public, checksum-pinned tokenizer vocabulary is downloaded. Prompts,
-credentials and source records never leave the process during token counting.
+The vocabulary is public and checksum-pinned. Prompt text is counted locally;
+the vocabulary host receives no prompts, source records or credentials.
 """
 
 from functools import lru_cache

@@ -45,7 +45,7 @@ def deploy():
         ["git", "status", "--porcelain"], cwd=ROOT, text=True
     ).strip():
         raise ValueError("Commit and audit source before deploying")
-    if audit()["status"] != "passed":
+    if not audit():
         raise ValueError("Publication audit failed")
     cfg = dotenv_values(ROOT / ".env")
     state = json.loads(STATE.read_text())

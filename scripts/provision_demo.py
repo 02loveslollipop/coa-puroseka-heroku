@@ -47,30 +47,30 @@ def provision():
         )
         conn.execute(
             sql.SQL(
-                "INSERT INTO {}.chat_policies(username,enabled,limit_enabled,token_limit,window_seconds) VALUES(%s,true,true,%s,%s) ON CONFLICT(username) DO UPDATE SET enabled=true,limit_enabled=true,token_limit=EXCLUDED.token_limit,window_seconds=EXCLUDED.window_seconds"
+                "INSERT INTO {}.chat_policies(username,enabled,limit_enabled,token_limit,window_seconds) VALUES(%s,true,true,%s,%s) ON CONFLICT(username) DO NOTHING"
             ).format(schema),
             (DEMO_EMAIL, TOKEN_LIMIT, WINDOW_SECONDS),
         )
+        policy = conn.execute(
+            sql.SQL(
+                "SELECT limit_enabled,token_limit,window_seconds FROM {}.chat_policies WHERE username=%s"
+            ).format(schema),
+            (DEMO_EMAIL,),
+        ).fetchone()
         conn.execute(
             sql.SQL(
                 "INSERT INTO {}.chat_budgets(username,resets_at) VALUES(%s,%s) ON CONFLICT(username) DO NOTHING"
             ).format(schema),
-            (DEMO_EMAIL, now + timedelta(seconds=WINDOW_SECONDS)),
-        )
-        conn.execute(
-            sql.SQL(
-                "UPDATE {}.chat_budgets SET resets_at=LEAST(resets_at,started_at+%s*interval '1 second') WHERE username=%s"
-            ).format(schema),
-            (WINDOW_SECONDS, DEMO_EMAIL),
+            (DEMO_EMAIL, now + timedelta(seconds=policy[2])),
         )
     print(
         json.dumps(
             {
                 "user": DEMO_EMAIL,
                 "role": "user",
-                "token_limit": TOKEN_LIMIT,
-                "window_seconds": WINDOW_SECONDS,
-                "enforcement": True,
+                "token_limit": policy[1],
+                "window_seconds": policy[2],
+                "enforcement": policy[0],
                 "existing_usage_preserved": True,
             }
         )

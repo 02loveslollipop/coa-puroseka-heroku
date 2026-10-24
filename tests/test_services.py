@@ -10,6 +10,8 @@ from services.chat import auth
 from services.login.main import app as login
 from services.ontology.main import app as ontology
 from services.chat.main import app as chat
+from services.chat import control
+from shared.demo import DEMO_USERNAME
 from scripts.deploy_heroku import validate_resources
 
 
@@ -125,6 +127,100 @@ def test_nonadmin_cannot_review(monkeypatch):
         client.get("/api/jobs/00000000-0000-0000-0000-000000000000/review").status_code
         == 403
     )
+
+
+def test_admin_can_manage_demo_policy_separately(monkeypatch):
+    origin = "https://chat.example.test"
+    monkeypatch.setitem(settings(), "PUBLIC_ORIGIN", origin)
+    monkeypatch.setattr(
+        auth,
+        "call",
+        lambda *a, **k: {
+            "username": "admin@example.test",
+            "role": "admin",
+            "csrf": "csrf",
+        },
+    )
+    reads, writes = [], []
+    monkeypatch.setattr(
+        control,
+        "usage",
+        lambda username: reads.append(username) or {"account": username},
+    )
+    monkeypatch.setattr(
+        control,
+        "update_limit",
+        lambda *args: writes.append(args) or {"account": args[0]},
+    )
+    client = TestClient(chat, cookies={"coa_session": "session"})
+    policy = {"enabled": True, "token_limit": 30000, "window_seconds": 21600}
+    headers = {"Origin": origin, "X-CSRF-Token": "csrf"}
+    assert client.get("/api/admin/token-policy?account=demo").json() == {
+        "account": DEMO_USERNAME
+    }
+    assert client.get("/api/admin/token-policy").json() == {
+        "account": "admin@example.test"
+    }
+    assert reads == [DEMO_USERNAME, "admin@example.test"]
+    assert (
+        client.put(
+            "/api/admin/token-policy?account=demo", json=policy, headers=headers
+        ).status_code
+        == 200
+    )
+    assert (
+        client.put("/api/admin/token-policy", json=policy, headers=headers).status_code
+        == 200
+    )
+    assert writes == [
+        (DEMO_USERNAME, True, 30000, 21600),
+        ("admin@example.test", True, 30000, 21600),
+    ]
+    assert client.get("/api/admin/token-policy?account=someone-else").status_code == 422
+    assert (
+        client.put(
+            "/api/admin/token-policy?account=someone-else", json=policy, headers=headers
+        ).status_code
+        == 422
+    )
+    assert (
+        client.put(
+            "/api/admin/token-policy?account=demo",
+            json=policy,
+            headers={"Origin": origin},
+        ).status_code
+        == 403
+    )
+    assert len(writes) == 2
+
+
+def test_demo_cannot_read_or_change_admin_token_policies(monkeypatch):
+    origin = "https://chat.example.test"
+    monkeypatch.setitem(settings(), "PUBLIC_ORIGIN", origin)
+    monkeypatch.setattr(
+        auth,
+        "call",
+        lambda *a, **k: {"username": DEMO_USERNAME, "role": "user", "csrf": "csrf"},
+    )
+
+    def forbidden(*args):
+        pytest.fail("Non-admin access must stop before policy access")
+
+    monkeypatch.setattr(control, "usage", forbidden)
+    monkeypatch.setattr(control, "update_limit", forbidden)
+    client = TestClient(chat, cookies={"coa_session": "session"})
+    for account in ("self", "demo"):
+        assert (
+            client.get(f"/api/admin/token-policy?account={account}").status_code == 403
+        )
+        assert (
+            client.put(
+                f"/api/admin/token-policy?account={account}",
+                json={"enabled": False, "token_limit": 999999, "window_seconds": 60},
+                headers={"Origin": origin, "X-CSRF-Token": "csrf"},
+            ).status_code
+            == 403
+        )
 
 
 def test_decoupled_browser_cors_cookie_and_csrf(monkeypatch):

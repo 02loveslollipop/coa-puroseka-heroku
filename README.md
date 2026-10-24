@@ -26,6 +26,8 @@ The full-snapshot daily-gap example uses a covering UTC-day index, preserving al
 
 The private administrator can open the [dashboard](https://chat.coa.puroseka.02labs.me/admin/sources), inspect sources and ontology relations, and use Review mode for tool input/output JSON and executed SQL. Public demo access is chat only.
 
+In **Manage → Token limits**, select **Public demo** to configure its enforcement, token allowance and window duration, or **Administrator** to manage the admin account separately. The initial demo policy is 25,000 tokens per six-hour window; the live policy and usage are shown in the dashboard. Saving preserves used tokens and active reservations. Allowance and enforcement changes apply immediately; a changed window duration applies after the current window resets. Reprovisioning the demo preserves customized policies.
+
 ## Data and context ontology
 
 The imported snapshot has **180 events**, 1,229 cards, 26 characters, 950 event-card associations, 815 gachas, and **1,117,619 ranking observations**. Ranking histories cover 142 events; the other 38 have no observations. All available observations are retained across 16 registered tables. There are 2,250 source/generated labels.

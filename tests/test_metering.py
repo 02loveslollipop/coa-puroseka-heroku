@@ -135,10 +135,16 @@ def test_public_provisioning_preserves_usage_and_privileged_accounts(
     reservation = control.reserve(provision_demo.DEMO_EMAIL, 1000)
     control.settle(provision_demo.DEMO_EMAIL, reservation, 500)
     resets_at = control.usage(provision_demo.DEMO_EMAIL)["resets_at"]
+    pending = control.reserve(provision_demo.DEMO_EMAIL, 1000)
+    customized = control.update_limit(provision_demo.DEMO_EMAIL, False, 42000, 43200)
     provision_demo.provision()
     usage = control.usage(provision_demo.DEMO_EMAIL)
-    assert usage["enabled"] and usage["used_tokens"] == 500
+    assert usage == customized
+    assert not usage["enabled"] and usage["used_tokens"] == 500
+    assert usage["reserved_tokens"] == 1000
     assert usage["resets_at"] == resets_at
+    control.settle(provision_demo.DEMO_EMAIL, pending, 200)
+    assert control.usage(provision_demo.DEMO_EMAIL)["used_tokens"] == 700
     with psycopg.connect(budget_db[0]) as conn:
         row = conn.execute(
             sql.SQL(
@@ -157,3 +163,23 @@ def test_public_provisioning_preserves_usage_and_privileged_accounts(
         )
     with pytest.raises(ValueError, match="privileged account"):
         provision_demo.provision()
+
+
+def test_policy_edit_preserves_usage_and_changes_next_window(budget_db, monkeypatch):
+    first = control.reserve("demo", 1000)
+    control.settle("demo", first, 500)
+    pending = control.reserve("demo", 1000)
+    before = control.usage("demo")
+    updated = control.update_limit("demo", True, 1500, 3600)
+    assert updated["used_tokens"] == before["used_tokens"] == 500
+    assert updated["reserved_tokens"] == before["reserved_tokens"] == 1000
+    assert updated["resets_at"] == before["resets_at"]
+    with pytest.raises(control.BudgetExceeded):
+        control.reserve("demo", 1)
+    control.settle("demo", pending, 1000)
+    now = before["resets_at"] + timedelta(seconds=1)
+    monkeypatch.setattr(control, "utcnow", lambda: now)
+    usage = control.usage("demo")
+    assert usage["used_tokens"] == usage["reserved_tokens"] == 0
+    assert usage["remaining_tokens"] == 1500
+    assert usage["resets_at"] == now + timedelta(hours=1)

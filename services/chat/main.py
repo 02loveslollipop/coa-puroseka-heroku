@@ -138,10 +138,24 @@ def token_usage(user=Depends(auth.current_user)):
 
 
 @app.put("/api/admin/token-policy")
-def token_policy(body: LimitRequest, user=Depends(auth.admin_user)):
+def token_policy(
+    body: LimitRequest,
+    account: Literal["self", "demo"] = "self",
+    user=Depends(auth.admin_user),
+):
     return control.update_limit(
-        user["username"], body.enabled, body.token_limit, body.window_seconds
+        DEMO_USERNAME if account == "demo" else user["username"],
+        body.enabled,
+        body.token_limit,
+        body.window_seconds,
     )
+
+
+@app.get("/api/admin/token-policy")
+def read_token_policy(
+    account: Literal["self", "demo"] = "self", user=Depends(auth.admin_user)
+):
+    return control.usage(DEMO_USERNAME if account == "demo" else user["username"])
 
 
 async def run_job(job, user, body, audience):

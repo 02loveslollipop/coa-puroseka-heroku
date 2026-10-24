@@ -173,13 +173,6 @@ export default function App() {
               <Route path="access" element={<TokenSettings />} />
               <Route path="*" element={<Sources catalog={catalog} />} />
             </Routes>
-            <Box
-              margin={{ top: "xxl", bottom: "s" }}
-              color="text-body-secondary"
-              fontSize="body-s"
-            >
-              Puroseka proof of concept · Fixed ontology, one-time enrichment
-            </Box>
           </>
         }
       />

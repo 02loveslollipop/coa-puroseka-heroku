@@ -9,7 +9,7 @@ type Review = { job_id: string; input: unknown; output: unknown; calls: Call[] }
 type Evidence = { sql?: string; rows?: Record<string, unknown>[]; truncated?: boolean };
 const json = (value: unknown) => JSON.stringify(value, null, 2);
 const status = (value: string): StatusIndicatorProps.Type => value === "running" ? "loading" : value === "ok" ? "success" : value === "blocked" ? "stopped" : "error";
-const names: Record<string, string> = { physical_schema: "Read database schema", ontology_context: "Read ontology context", execute_query: "Query database", "Generate query": "Generate SQL", "Synthesize response": "Write response" };
+const names: Record<string, string> = { physical_schema: "Read database schema", ontology_context: "Read ontology context", format_ranking_evidence: "Summarize query evidence", execute_query: "Query database", "Generate query": "Generate SQL", "Synthesize response": "Write response" };
 
 function CallDetails({ call }: { call: Call }) {
   const [expanded, setExpanded] = useState(false);

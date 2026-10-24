@@ -2,9 +2,9 @@
 
 Deployed frontend: [chat](https://coa-puroseka-chat-1a5098100731.herokuapp.com/) · [administration](https://coa-puroseka-chat-1a5098100731.herokuapp.com/admin/sources).
 
-**Migration pending schema permission:** all three Eco apps use the corrected public PostgreSQL connection. The existing database has been backed up and fully restore-checked, but the supplied account lacks database CREATE permission for the required new schema. Login and inference remain unavailable until the owner grants that permission and the source data is imported. The AWS application has not been changed or shut down.
+The migration is complete: the source dataset, fixed ontology, and application state are stored in the new schema of the existing external PostgreSQL database. Sign in with the previously configured email/password. Base and Enhanced responses, event comparison, daily evolution, Review mode, and durable sessions/metering have passed production checks. All three applications use Eco web dynos with no add-ons. Token enforcement remains off. The AWS application has not been changed or shut down.
 
-Three small services demonstrate a fixed context ontology, semantic enrichment, and NL2SQL over the complete prepared Puroseka dataset. The UI uses Cloudscape components and AI chat patterns. The same `ministral-8b-latest` model supports Base, Enhanced, and A/B comparison, with tool activity, SQL evidence, and administrator Review mode.
+Three small services demonstrate a fixed context ontology, semantic enrichment, and NL2SQL over the complete prepared Puroseka dataset. The UI uses Cloudscape components and AI chat patterns. The same `ministral-8b-latest` model supports Base, Enhanced, and A/B comparison, with tool activity, SQL evidence, and administrator Review mode. Ranking answers present the returned SQL rows and calculate score comparisons in code. This avoids a second model narration adding unsupported causes or reversing numeric comparisons; generated SQL still needs evidence review.
 
 This repository is separate from the [original AWS application](https://github.com/02loveslollipop/coa-puroseka). It contains source code and hand-authored semantic examples only. Source records, generated ontology artifacts, translations, database dumps, credentials, and operational reports remain private and ignored.
 
@@ -35,7 +35,7 @@ npm --prefix web run build
 .venv/bin/python -m pytest -q
 ```
 
-Populate the ignored `.env` locally. Never put credentials in shell arguments, Git, screenshots, or issue text. `MIGRATION_DATABASE_URL` selects the existing destination; `SOURCE_DATABASE_URL` selects a restored private source snapshot. `SOURCE_ARTIFACT_DIR` holds the prepared catalog, manifests, labels, SQL examples, and Turtle file. The repository does not distribute these generated artifacts.
+Populate the ignored `.env` locally. Never put credentials in shell arguments, Git, screenshots, or issue text. `MIGRATION_DATABASE_URL` selects the existing destination and runtime account. When that account cannot provision schemas, set `MIGRATION_ADMIN_DATABASE_URL` locally to an owner/admin connection to the same database. The importer then keeps schema ownership with the operator and grants runtime access without source-data writes. The admin connection is never sent to Heroku. `SOURCE_DATABASE_URL` selects a restored private source snapshot. `SOURCE_ARTIFACT_DIR` holds the prepared catalog, manifests, labels, SQL examples, and Turtle file. The repository does not distribute these generated artifacts.
 
 Before a production import, take and restore-check a backup of the existing target database. Then run:
 
@@ -44,7 +44,7 @@ Before a production import, take and restore-check a backup of the existing targ
 .venv/bin/python scripts/migrate_postgres.py
 ```
 
-The migration refuses an existing target schema. It copies all source rows into one new namespace in a transaction, retains primary/unique keys and indexes, recreates validated relationships, compares per-table SHA-256 fingerprints, checks source/target query parity, preserves metering/jobs/reviews, seeds the existing administrator with a fresh local hash, and invalidates old browser sessions. An error rolls the transaction back. Unrelated schemas are neither imported into nor reset.
+The migration refuses an existing target schema. It copies all source rows into one new namespace in a transaction, retains primary/unique keys and indexes, recreates validated relationships, compares per-table SHA-256 fingerprints using a common byte ordering across database locales, checks source/target query parity, preserves metering/jobs/reviews, seeds the existing administrator with a fresh local hash, and invalidates old browser sessions. An error rolls the transaction back. Unrelated schemas are neither imported into nor reset.
 
 Run the three-service check against a **local disposable** migrated database by setting `LOCAL_TEST_DATABASE_URL` in your shell environment:
 
@@ -54,7 +54,7 @@ Run the three-service check against a **local disposable** migrated database by 
 .venv/bin/python scripts/verify_services.py --live-model
 ```
 
-The check exercises real service HTTP calls, authentication, CSRF, private-table rejection, source inspection, timelines, SQL, session persistence, usage persistence, and interrupted jobs. The optional model check also verifies asynchronous replies and redacted Review mode traces.
+The check exercises real service HTTP calls, authentication, CSRF, private-table rejection, source inspection, timelines, SQL, session persistence, usage persistence, and interrupted jobs. The optional model check also verifies asynchronous replies and redacted Review mode traces. For the deployed applications, `scripts/verify_deployment.py --live-model --restart` checks real HTTPS APIs, both model modes, event comparisons, daily evolution, and session/meter persistence after restarting existing Eco processes.
 
 ## Eco-only deployment
 

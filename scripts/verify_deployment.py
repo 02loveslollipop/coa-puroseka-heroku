@@ -264,6 +264,18 @@ def verify(live_model=False, restart=False):
                         ),
                         mode + " review excludes credentials",
                     )
+                    if mode == "enriched":
+                        check(
+                            any(
+                                call["name"] == "format_ranking_evidence"
+                                for call in data["calls"]
+                            ),
+                            "Ranking answer is rendered from SQL evidence",
+                        )
+                        check(
+                            sum(call["kind"] == "model" for call in data["calls"]) == 1,
+                            "Ranking narration cannot add unsupported model claims",
+                        )
                     if mode == "base":
                         check(
                             list(queries[-1]["output"]["rows"][0].values()) == [180],

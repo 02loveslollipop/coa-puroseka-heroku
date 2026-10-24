@@ -1,12 +1,10 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Literal
 from fastapi import FastAPI, HTTPException, Depends, Request, Response, BackgroundTasks
 from fastapi.encoders import jsonable_encoder
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from psycopg import Error as DatabaseError
 from app.config import settings
@@ -31,6 +29,16 @@ async def lifespan(app):
 
 app = FastAPI(title="Puroseka Semantic Context PoC", version="1.0.0", lifespan=lifespan)
 app.add_exception_handler(DatabaseError, database_unavailable)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings()["PUBLIC_ORIGIN"]]
+    if settings().get("PUBLIC_ORIGIN")
+    else [],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT"],
+    allow_headers=["Content-Type", "X-CSRF-Token"],
+    expose_headers=["Retry-After"],
+)
 _inflight = asyncio.Semaphore(2)
 
 
@@ -352,14 +360,3 @@ def ontology_proxy(path: str, request: Request, user=Depends(auth.admin_user)):
         "ontology", "GET", route, token=user["_session_token"], raw=True
     )
     return Response(content, media_type=content_type)
-
-
-static = Path(__file__).resolve().parents[2] / "web/dist"
-if static.exists():
-    app.mount("/assets", StaticFiles(directory=static / "assets"), name="assets")
-
-    @app.get("/{path:path}")
-    def spa(path: str):
-        if path.startswith("api/"):
-            raise HTTPException(404)
-        return FileResponse(static / "index.html")

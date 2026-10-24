@@ -1,0 +1,12 @@
+/web/
+/package.json
+/package-lock.json
+/docs/
+/tests/
+/scripts/
+/.deploy/
+/artifacts/
+/.env
+/.env.*
+/output/
+/.venv/

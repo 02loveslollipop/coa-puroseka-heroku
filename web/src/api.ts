@@ -47,6 +47,9 @@ export type Run = {
   query_purpose?: string;
 };
 let csrf = "";
+// Public build configuration only. Sessions remain in an HttpOnly API cookie.
+const apiOrigin = (import.meta.env.VITE_API_ORIGIN || "").replace(/\/$/, "");
+export function apiUrl(path: string): string { return apiOrigin + "/api" + path; }
 export function setCsrf(value: string) { csrf = value; }
 export class ApiError extends Error {
   constructor(public status: number, message: string, public retryAfter = 0) { super(message); }
@@ -59,7 +62,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (init?.method && !["GET", "HEAD"].includes(init.method.toUpperCase())) {
     headers.set("X-CSRF-Token", csrf);
   }
-  const r = await fetch("/api" + path, { ...init, headers, credentials: "same-origin" });
+  const r = await fetch(apiUrl(path), { ...init, headers, credentials: "include" });
   if (!r.ok) {
     const body = await r.json().catch(() => ({}));
     if (r.status === 401 && path !== "/auth/login") window.dispatchEvent(new Event("coa-session-expired"));

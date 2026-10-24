@@ -125,3 +125,78 @@ def test_nonadmin_cannot_review(monkeypatch):
         client.get("/api/jobs/00000000-0000-0000-0000-000000000000/review").status_code
         == 403
     )
+
+
+def test_decoupled_browser_cors_cookie_and_csrf(monkeypatch):
+    # Rebuild the real ASGI middleware with the deployment's frontend origin.
+    from starlette.middleware.cors import CORSMiddleware
+
+    origin = "https://chat.coa.puroseka.02labs.me"
+    monkeypatch.setitem(settings(), "PUBLIC_ORIGIN", origin)
+    middleware = next(m for m in chat.user_middleware if m.cls is CORSMiddleware)
+    monkeypatch.setitem(middleware.kwargs, "allow_origins", [origin])
+    monkeypatch.setattr(chat, "middleware_stack", None)
+    user = {"username": "demo@example.test", "role": "admin", "csrf": "csrf-value"}
+    monkeypatch.setattr(
+        auth,
+        "call",
+        lambda *a, **k: (
+            {"token": "private-session", "user": user}
+            if a[2] == "/internal/login"
+            else user
+        ),
+    )
+    monkeypatch.setattr(
+        "services.chat.main.control.update_limit", lambda *a: {"enabled": False}
+    )
+    client = TestClient(chat, base_url="https://api.coa.puroseka.02labs.me")
+    preflight = {
+        "Origin": origin,
+        "Access-Control-Request-Method": "PUT",
+        "Access-Control-Request-Headers": "Content-Type,X-CSRF-Token",
+    }
+    response = client.options("/api/admin/token-policy", headers=preflight)
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == origin
+    assert response.headers["access-control-allow-credentials"] == "true"
+    assert (
+        client.options(
+            "/api/admin/token-policy",
+            headers={**preflight, "Origin": "https://foreign.test"},
+        ).status_code
+        == 400
+    )
+    response = client.post(
+        "/api/auth/login",
+        headers={"Origin": origin},
+        json={"username": user["username"], "password": "irrelevant"},
+    )
+    assert response.status_code == 200
+    cookie = response.headers["set-cookie"]
+    assert "Secure" in cookie and "HttpOnly" in cookie and "SameSite=strict" in cookie
+    assert "domain=" not in cookie.lower()
+    assert client.get("/api/auth/me", headers={"Origin": origin}).json() == user
+    policy = {"enabled": False, "token_limit": 100000, "window_seconds": 3600}
+    assert (
+        client.put(
+            "/api/admin/token-policy", headers={"Origin": origin}, json=policy
+        ).status_code
+        == 403
+    )
+    assert (
+        client.put(
+            "/api/admin/token-policy",
+            headers={"Origin": "https://foreign.test", "X-CSRF-Token": "csrf-value"},
+            json=policy,
+        ).status_code
+        == 403
+    )
+    assert (
+        client.put(
+            "/api/admin/token-policy",
+            headers={"Origin": origin, "X-CSRF-Token": "csrf-value"},
+            json=policy,
+        ).status_code
+        == 200
+    )
+    assert client.get("/").status_code == 404

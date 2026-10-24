@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ROOT_FILES = {
     ".gitignore",
     ".dockerignore",
+    ".slugignore",
     ".env.example",
     ".python-version",
     "README.md",

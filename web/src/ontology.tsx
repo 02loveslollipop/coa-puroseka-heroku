@@ -19,7 +19,7 @@ import {
 import * as tokens from "@cloudscape-design/design-tokens";
 import { Background, Controls, MarkerType, ReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Catalog } from "./api";
+import { Catalog, apiUrl } from "./api";
 import { FieldDefinitions, LoadingState } from "./ui";
 
 export function Ontology({ catalog }: { catalog: Catalog | null }) {
@@ -97,7 +97,7 @@ export function Ontology({ catalog }: { catalog: Catalog | null }) {
           variant="h1"
           description="Explore source-grounded concepts, relationships, and database mappings."
           actions={
-            <Button href="/api/ontology.ttl" iconName="download">
+            <Button href={apiUrl("/ontology.ttl")} iconName="download">
               Download ontology
             </Button>
           }

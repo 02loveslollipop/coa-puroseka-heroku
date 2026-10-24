@@ -21,7 +21,8 @@ def verify(live_model=False, restart=False):
     state = json.loads((ROOT / ".deploy/heroku-services.json").read_text())
     checks = []
     model_results = []
-    base = state["services"]["chat"]["url"]
+    base = state.get("public_api_origin", state["services"]["chat"]["url"])
+    frontend = state.get("frontend_origin", base)
 
     def check(ok, label):
         if not ok:
@@ -87,8 +88,9 @@ def verify(live_model=False, restart=False):
             check(True, service + " database readiness")
         with httpx.Client(base_url=base, timeout=27) as browser:
             check(
-                browser.get("/").status_code == 200
-                and browser.get("/admin/sources").status_code == 200,
+                httpx.get(frontend + "/", timeout=25).status_code == 200
+                and httpx.get(frontend + "/admin/sources", timeout=25).status_code
+                == 200,
                 "Chat and administrator pages load",
             )
             check(
@@ -109,7 +111,7 @@ def verify(live_model=False, restart=False):
                 "Cross-origin login denied",
             )
             response = browser.post(
-                "/api/auth/login", json=credentials, headers={"Origin": base}
+                "/api/auth/login", json=credentials, headers={"Origin": frontend}
             )
             check(
                 response.status_code == 200 and response.json().get("role") == "admin",
@@ -123,7 +125,7 @@ def verify(live_model=False, restart=False):
                 "Secure browser session cookie",
             )
             csrf = response.json()["csrf"]
-            headers = {"Origin": base, "X-CSRF-Token": csrf}
+            headers = {"Origin": frontend, "X-CSRF-Token": csrf}
             session = browser.cookies.get("coa_session")
             check(
                 "_session_token" not in browser.get("/api/auth/me").text,
@@ -323,6 +325,7 @@ def verify(live_model=False, restart=False):
     report = {
         "status": "passed",
         "chat_url": base,
+        "frontend_url": frontend,
         "checks": checks,
         "live_model": live_model,
         "model_results": model_results,

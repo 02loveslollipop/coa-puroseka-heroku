@@ -1,6 +1,6 @@
-# COA Puroseka — Heroku Eco
+# COA Puroseka — Cloudflare Pages and Heroku Eco
 
-Deployed frontend: [chat](https://coa-puroseka-chat-1a5098100731.herokuapp.com/) · [administration](https://coa-puroseka-chat-1a5098100731.herokuapp.com/admin/sources).
+Frontend: [chat](https://chat.coa.puroseka.02labs.me/) · [administration](https://chat.coa.puroseka.02labs.me/admin/sources). Browser API: [health](https://api.coa.puroseka.02labs.me/api/health).
 
 The migration is complete: the source dataset, fixed ontology, and application state are stored in the new schema of the existing external PostgreSQL database. Sign in with the previously configured email/password. Base and Enhanced responses, event comparison, daily evolution, Review mode, and durable sessions/metering have passed production checks. All three applications use Eco web dynos with no add-ons. Token enforcement remains off. The AWS application has not been changed or shut down.
 
@@ -12,7 +12,8 @@ This repository is separate from the [original AWS application](https://github.c
 
 | Service | Purpose | Process |
 |---|---|---|
-| Chat | Chat/admin UI, same-origin browser gateway, model calls, asynchronous jobs, reviews, token accounting | `services.chat.main:app` |
+| Frontend | Static Cloudscape chat and administration; deployed independently on Cloudflare Pages | `web/` |
+| Chat | Browser API, model calls, asynchronous jobs, reviews, token accounting | `services.chat.main:app` |
 | Ontology | Fixed catalog, RDF, examples, source inspection, guarded read-only SQL | `services.ontology.main:app` |
 | Login | Salted scrypt passwords, persistent opaque sessions, roles, login throttling | `services.login.main:app` |
 
@@ -24,14 +25,14 @@ There is no enrichment agent or automatic ontology generation at runtime. The pr
 
 ## Local setup and checks
 
-Use Python 3.12+, Node 22+, and a disposable local PostgreSQL instance for migration tests.
+Use Python 3.15, Node 24 LTS, and a disposable local PostgreSQL instance for migration tests. Backend apps use Heroku-26 with the Python buildpack and the existing Procfile web command. Node and frontend assets are excluded from backend builds. Pydantic and Psycopg are updated for Python 3.15 binary compatibility.
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 cp .env.example .env
 npm --prefix web ci
-npm --prefix web run build
+VITE_API_ORIGIN=https://api.coa.puroseka.02labs.me npm --prefix web run build
 .venv/bin/python -m pytest -q
 ```
 
@@ -66,7 +67,26 @@ Authenticate the Heroku CLI, publish the audited source to `coa-puroseka-heroku`
 .venv/bin/python scripts/deploy_heroku.py
 ```
 
-The script creates personal apps for login, ontology, and chat, injects only each service's required configuration through the authenticated API, and verifies Eco formation and zero add-ons. The Mistral key goes only to chat. The administrator's plaintext password is used only for the workstation migration and is not placed in Heroku config vars. Heroku deployment state and URLs are saved in ignored `.deploy/heroku-services.json`.
+The script creates personal apps for login, ontology, and chat or rebuilds the three recorded apps on the manifest's stack. Existing apps must already have exactly one Eco web dyno and zero add-ons. Only each service's required configuration is passed through the authenticated API. The Mistral key goes only to chat. The administrator's plaintext password is used only for the workstation migration and is not placed in Heroku config vars. Heroku deployment state and URLs are saved in ignored `.deploy/heroku-services.json`.
+
+## Independent frontend, domains and HTTPS
+
+The frontend calls `VITE_API_ORIGIN` directly with credentialed requests. The API allows only its exact `PUBLIC_ORIGIN`, including credentialed CORS preflight; mutations still require the session CSRF token. The session cookie is host-only, Secure, HttpOnly and SameSite=Strict. The production frontend and API are HTTPS subdomains of the same site. Unrelated `pages.dev` preview origins cannot authenticate to the production API.
+
+Both custom CNAME records are **DNS-only (`proxied: false`)**. Pages manages the certificate for `chat.coa.puroseka.02labs.me`; Heroku ACM manages `api.coa.puroseka.02labs.me` using the app's assigned `herokudns.com` target. No wildcard certificate or paid certificate product is required. Login and ontology retain their existing service URLs and bearer-authenticated service boundaries.
+
+Authenticate `cf auth login`, then configure the existing backend domain and build/deploy the frontend:
+
+```bash
+.venv/bin/python scripts/configure_domains.py
+VITE_API_ORIGIN=https://api.coa.puroseka.02labs.me npm --prefix web run build
+.venv/bin/python scripts/deploy_frontend.py
+# Publish audited source before rebuilding the backends.
+.venv/bin/python scripts/deploy_heroku.py
+.venv/bin/python scripts/verify_deployment.py --live-model
+```
+
+`deploy_frontend.py` uploads only checked static output from `web/dist`; it refuses unexpected files and configured secret values. It uses `cf` for project, deployment, custom-domain and DNS operations. The installed CLI does not expose asset upload, so the uploader calls the Pages asset API with a short-lived JWT obtained through `cf`. No OAuth token is copied into the project or deployment. Git integration is not required. Conflicting existing DNS records are left untouched. Deployment receipts remain in ignored `.deploy/`.
 
 Eco dynos sleep after inactivity and share the account's 1,000-hour monthly pool. Dependency services can also need time to wake; the UI reports temporary service unavailability and allows retry. There are no keep-alive jobs. Eco is intended for this small demo, not continuous availability. [Heroku Eco behavior](https://devcenter.heroku.com/articles/eco-dyno-hours).
 

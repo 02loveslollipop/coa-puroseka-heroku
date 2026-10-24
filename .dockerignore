@@ -10,8 +10,4 @@
 !infra/
 !infra/heroku/
 !infra/heroku/start.py
-!web/
-!web/**
-web/node_modules
-web/dist
 **/__pycache__

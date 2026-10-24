@@ -113,6 +113,23 @@ def deploy():
                         MISTRAL_MODEL="ministral-8b-latest",
                     )
             item = state["services"].get(service)
+            existing = bool(item)
+            if existing:
+                formation = api.get("/apps/" + item["id"] + "/formation")
+                formation.raise_for_status()
+                if len(formation.json()) != 1 or any(
+                    f["size"].lower() != "eco"
+                    or f["type"] != "web"
+                    or f["quantity"] != 1
+                    for f in formation.json()
+                ):
+                    raise RuntimeError(
+                        "Existing application must have exactly one Eco web dyno"
+                    )
+                addons = api.get("/apps/" + item["id"] + "/addons")
+                addons.raise_for_status()
+                if addons.json():
+                    raise RuntimeError("Existing application has unexpected add-ons")
             if not item:
                 response = api.post(
                     "/app-setups",
@@ -137,11 +154,55 @@ def deploy():
                 state["services"][service] = item
                 save(state)
             if service == "chat":
-                base["PUBLIC_ORIGIN"] = item["url"]
+                base["PUBLIC_ORIGIN"] = cfg.get("PUBLIC_ORIGIN") or item["url"]
             response = api.patch("/apps/" + item["id"] + "/config-vars", json=base)
             response.raise_for_status()
+            if existing:
+                path = "/apps/" + item["id"]
+                api.patch(
+                    path, json={"build_stack": manifest["stack"]}
+                ).raise_for_status()
+                api.put(
+                    path + "/buildpack-installations",
+                    json={
+                        "updates": [
+                            {"buildpack": b["url"]} for b in manifest["buildpacks"]
+                        ]
+                    },
+                ).raise_for_status()
+                response = api.post(
+                    path + "/builds",
+                    json={"source_blob": {"url": archive, "version": revision}},
+                )
+                response.raise_for_status()
+                build = response.json()
+                item["build_id"] = build["id"]
+                save(state)
+                print(
+                    json.dumps(
+                        {
+                            "service": service,
+                            "build": "pending",
+                            "stack": manifest["stack"],
+                        }
+                    ),
+                    flush=True,
+                )
+                for _ in range(180):
+                    response = api.get(path + "/builds/" + build["id"])
+                    response.raise_for_status()
+                    build = response.json()
+                    if build["status"] == "succeeded":
+                        break
+                    if build["status"] == "failed":
+                        raise RuntimeError("Backend build failed for " + service)
+                    time.sleep(3)
+                else:
+                    raise RuntimeError("Build still pending; inspect saved build_id")
+                item["revision"] = revision
+                item["stack"] = manifest["stack"]
             last = None
-            for _ in range(100):
+            for _ in range(0 if existing else 100):
                 response = api.get("/app-setups/" + item["setup_id"])
                 response.raise_for_status()
                 setup = response.json()
@@ -172,7 +233,8 @@ def deploy():
                     break
                 time.sleep(5)
             else:
-                raise RuntimeError("Build still pending; resume script to monitor")
+                if not existing:
+                    raise RuntimeError("Build still pending; resume script to monitor")
             formation = api.get("/apps/" + item["id"] + "/formation")
             formation.raise_for_status()
             if any(

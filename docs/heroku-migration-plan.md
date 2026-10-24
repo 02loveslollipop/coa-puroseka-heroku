@@ -1,8 +1,8 @@
 # Heroku migration plan: ontology, chat, and login services
 
-Status: three-service implementation and local full-dataset verification completed. External-target backup/import and live deployment verification remain pending connectivity. Only Heroku Eco web dynos are authorized; no other cloud resource type may be deployed. AWS remains unchanged.
+Status: three-service implementation, local full-dataset verification, and deployment of three Heroku Eco web apps completed. Public frontend and anonymous-access checks passed. External-target backup/import and authenticated production acceptance remain pending: PostgreSQL connections time out from both the workstation and Heroku. Only Heroku Eco web dynos are authorized; no other cloud resource type may be deployed. AWS remains unchanged.
 
-Repository decision: keep the existing `coa-puroseka` GitHub repository unchanged. After local implementation and checks, create a separate repository named `coa-puroseka-heroku`. Publish only reviewed source, infrastructure definitions, and documentation; exclude credentials, datasets, dumps, generated ontology/data artifacts, and operational reports. The separate local working directory is `/home/zerotwo/coa-puroseka-heroku`, initialized with fresh Git history and no remote. Keep its remote separate so publishing it cannot push to the AWS repository by mistake. Update the chat and admin repository links to the new repository before release.
+Repository decision: the existing `coa-puroseka` GitHub repository is unchanged. Audited source has been published separately at [coa-puroseka-heroku](https://github.com/02loveslollipop/coa-puroseka-heroku). Publish only reviewed source, infrastructure definitions, and documentation; exclude credentials, datasets, dumps, generated ontology/data artifacts, and operational reports. The separate local working directory is `/home/zerotwo/coa-puroseka-heroku`, initialized with fresh Git history and a remote pointing only to the new repository. Keep its remote separate so publishing it cannot push to the AWS repository by mistake. Both chat and admin repository header links point to the new repository.
 
 ## 1. Verified starting point
 
@@ -18,7 +18,7 @@ Inspection date: 24 October 2026 UTC.
 | Token policy | Enforcement off; preserve usage and configuration |
 | Application hosting | Heroku, with separate ontology, chat, and login applications |
 | Current database target | User-supplied external PostgreSQL endpoint; connection string saved only in ignored local configuration |
-| Target connectivity | DNS resolves; PostgreSQL connection and TCP probe to port 5432 time out from this workstation |
+| Target connectivity | DNS resolves; PostgreSQL connections to port 5432 time out from this workstation and an Eco diagnostic on Heroku |
 | Target version, contents, privileges, capacity | Unverified until the external endpoint is reachable |
 | Proposed namespace | One new schema: `coa_puroseka`; availability on the replacement target must be checked |
 
@@ -52,7 +52,7 @@ The replacement database needs room for the full restored dataset **in addition 
 
 The old Heroku Essential-0 add-on's 1 GB allowance was insufficient for the complete dataset, which prompted the replacement-target decision. That old limit does not describe the new target. No Heroku database upgrade is part of this plan. Do not silently sample events/ranks, remove observations, truncate source JSON, or discard review/accounting history to fit an unverified allowance.
 
-Inspect schema-creation rights, object ownership, role-creation permissions, and the provider's support for separate runtime credentials. Prefer a read-only ontology/query role and separate login/chat roles restricted to their owned tables, with an operator credential used only for provisioning. Never grant runtime services access to unrelated schemas. If the provider only permits one owner credential, document that shared ownership supplies logical separation through service/table allowlists rather than a database privilege boundary; do not claim separate-role isolation.
+Inspect schema-creation rights, object ownership, role-creation permissions, and the provider's support for separate runtime credentials. Prefer a read-only ontology/query role and separate login/chat roles restricted to their owned tables, with an operator credential used only for provisioning. No role creation or target-schema provisioning has occurred while connectivity is unavailable. Never grant runtime services access to unrelated schemas. If the provider only permits one owner credential, document that shared ownership supplies logical separation through service/table allowlists rather than a database privilege boundary; do not claim separate-role isolation.
 
 ## 4. Three independently deployable services
 
@@ -190,3 +190,15 @@ The external database's existing charges remain provider-specific and unverified
 Local validation completed against the complete restored dataset: all 16 table counts/content fingerprints and five NL2SQL query results match the source. Real HTTP checks across three local processes covered login, CSRF, private-table isolation, source previews, rankings, RDF, persistent sessions/metering, and interrupted-job handling. Base and Enhanced jobs both completed through the actual Mistral sandbox and captured tool reviews without credentials. Production acceptance must repeat those checks against the deployed apps after the external database is reachable.
 
 References: [Heroku pricing](https://www.heroku.com/pricing/), [Eco hours and sleeping](https://devcenter.heroku.com/articles/eco-dyno-hours).
+
+## Current deployment and remaining acceptance
+
+| Service | HTTPS URL | Verified formation |
+|---|---|---|
+| Chat / browser gateway | https://coa-puroseka-chat-1a5098100731.herokuapp.com | One Eco web dyno; zero add-ons |
+| Ontology | https://coa-puroseka-ontology-67399c6329cd.herokuapp.com | One Eco web dyno; zero add-ons |
+| Login | https://coa-puroseka-login-86d7b2fa428b.herokuapp.com | One Eco web dyno; zero add-ons |
+
+The frontend returns HTTP 200; protected anonymous requests return HTTP 401; cross-origin login returns HTTP 403. Database readiness returns HTTP 503 because the target connection times out. A short-lived Eco diagnostic independently confirmed the connection timeout from Heroku and exited. No other dyno class or add-on was provisioned. Only chat has the Mistral key; runtime config contains no AWS credentials or plaintext administrator password.
+
+Next required input is a working public PostgreSQL endpoint or corrected network access for the supplied endpoint. Then inspect permissions/capacity, back up and restore-check the existing target, import the new schema, and complete authenticated production checks. A reachable frontend is not proof of a completed database migration. Do not redirect users away from AWS or retire it before those checks pass.

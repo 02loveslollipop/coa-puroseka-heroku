@@ -1,5 +1,9 @@
 # COA Puroseka — Heroku Eco
 
+Deployed frontend: [chat](https://coa-puroseka-chat-1a5098100731.herokuapp.com/) · [administration](https://coa-puroseka-chat-1a5098100731.herokuapp.com/admin/sources).
+
+**Migration pending database access:** all three apps are deployed on Eco, but the supplied PostgreSQL endpoint times out from both the workstation and Heroku. Login and inference remain unavailable until the existing database is reachable, backed up, and populated. The AWS application has not been changed or shut down.
+
 Three small services demonstrate a fixed context ontology, semantic enrichment, and NL2SQL over the complete prepared Puroseka dataset. The UI uses Cloudscape components and AI chat patterns. The same `ministral-8b-latest` model supports Base, Enhanced, and A/B comparison, with tool activity, SQL evidence, and administrator Review mode.
 
 This repository is separate from the [original AWS application](https://github.com/02loveslollipop/coa-puroseka). It contains source code and hand-authored semantic examples only. Source records, generated ontology artifacts, translations, database dumps, credentials, and operational reports remain private and ignored.

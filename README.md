@@ -70,7 +70,7 @@ flowchart LR
         DB[(PostgreSQL<br/>coa_puroseka schema)]
     end
     subgraph Mistral
-        Model[Ministral 8B sandbox]
+        Model[Ministral 8B]
     end
     UI --> Chat
     Chat --> Login

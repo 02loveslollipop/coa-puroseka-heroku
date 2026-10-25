@@ -13,7 +13,7 @@ Open **[Puroseka chat](https://chat.coa.puroseka.02labs.me/)**.
 
 | Email | Password | Shared allowance |
 |---|---|---|
-| `demo@02labs.me` | `demo1234` | 100,000 input/output tokens per six-hour window (admin configurable) |
+| `demo@02labs.me` | `demo1234` | 100,000 input/output tokens per six-hour window |
 
 Credentials are intentionally public. All visitors share approximately 100,000 tokens across 6 hour windows, including both responses in A/B mode. The reset time is shown in chat.
 

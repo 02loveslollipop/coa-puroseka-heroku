@@ -81,6 +81,11 @@ def grant_runtime_access(conn, schema, tables, role):
                     sql.Identifier(role),
                 )
             )
+    conn.execute(
+        sql.SQL("GRANT UPDATE(password_hash) ON {}.auth_accounts TO {}").format(
+            sql.Identifier(schema), sql.Identifier(role)
+        )
+    )
     for table in tables:
         allowed = conn.execute(
             "SELECT has_table_privilege(%s,%s,'INSERT,UPDATE,DELETE,TRUNCATE')",

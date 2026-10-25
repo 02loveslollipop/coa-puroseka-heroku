@@ -7,3 +7,5 @@ Cloudscape Design System, React, React Flow, d3-force (ISC), React Markdown, Fas
 Ministral 3 8B Tekken vocabulary, https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512, Apache-2.0.
 
 Data source: [sekai.best datasets (Sekai Viewer)](https://sekai.best/). Data and game assets remain the property of their respective owners. Generated English labels are approximate, not official localization.
+
+argon2-cffi supplies local Argon2id password hashing and retains its license distributed with the installed package.

@@ -90,7 +90,7 @@ flowchart LR
 
 - `services/chat/`: authenticated browser API, model calls, asynchronous responses, token accounting and demo retention.
 - `services/ontology/`: immutable semantic context, source inspection and guarded read-only SQL.
-- `services/login/`: scrypt password hashes, persistent opaque sessions, roles and login throttling.
+- `services/login/`: Argon2id password hashes with login-time scrypt upgrades, persistent opaque sessions, roles and login throttling.
 - `shared/`: configuration, database connection plumbing, service authentication and RPC.
 - `web/`: independent React/Cloudscape frontend and its Node dependencies.
 - `infra/`, `scripts/`, `tests/`: deployment, operator tooling and verification.
@@ -126,6 +126,8 @@ For a new private dataset import, configure the existing target database, a rest
 ```
 
 The importer refuses an existing destination schema and verifies counts, fingerprints and SQL example parity. The operator database credential stays local. Reprovisioning the demo preserves consumed tokens. Use a disposable local PostgreSQL database for database tests via `LOCAL_TEST_DATABASE_URL`.
+
+Local password storage uses Argon2id (64 MiB, three passes, one lane). Successful logins upgrade legacy scrypt hashes or outdated Argon2id parameters without changing passwords, sessions or token usage. Before upgrading an existing login service, run `.venv/bin/python scripts/enable_password_rehash.py` locally with the operator configuration; it grants only password-hash updates to the login runtime account.
 
 Deployment uses the three existing recorded **Eco web apps only**, without add-ons, workers or schedulers. Authenticate the Heroku CLI and `cf auth login`; local app IDs and URLs are recorded in ignored `.deploy/heroku-services.json`. Publish an audited commit to this repository, then run:
 

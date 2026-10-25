@@ -1,7 +1,6 @@
 """Local password sign-in with opaque, revocable, server-side browser sessions."""
 
 import hashlib
-import hmac
 import secrets
 from datetime import timedelta
 
@@ -10,23 +9,14 @@ from fastapi import HTTPException, Request
 from shared.config import settings
 from shared.control_database import control_connection, utcnow
 from shared.database import namespace
+from shared.passwords import (
+    password_hash as password_hash,
+    password_matches as password_matches,
+    password_needs_rehash,
+)
 
 COOKIE = "coa_session"
 SESSION_SECONDS = 3600
-
-
-def password_hash(password, salt=None):
-    salt = salt or secrets.token_hex(16)
-    digest = hashlib.scrypt(password.encode(), salt=salt.encode(), n=16384, r=8, p=1)
-    return salt + ":" + digest.hex()
-
-
-def password_matches(password, encoded):
-    try:
-        salt, _ = encoded.split(":", 1)
-        return hmac.compare_digest(password_hash(password, salt), encoded)
-    except (ValueError, AttributeError):
-        return False
 
 
 def fingerprint(value):
@@ -62,14 +52,33 @@ def login(username, password, ip):
         user = conn.execute(
             f"SELECT * FROM {namespace()}.auth_accounts WHERE username=%s", (username,)
         ).fetchone()
-    encoded = (
-        user["password_hash"] if user else password_hash(secrets.token_urlsafe(32))
-    )
+    encoded = user["password_hash"] if user else None
     valid = password_matches(password, encoded)
     if not valid or not user or not user["enabled"]:
         raise HTTPException(401, "The email or password is incorrect.")
     token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
     with control_connection() as conn:
+        # Lock and re-check before issuing a session. A concurrent password
+        # change must not authenticate a password verified against an old hash.
+        current = conn.execute(
+            f"SELECT * FROM {namespace()}.auth_accounts WHERE username=%s FOR UPDATE",
+            (username,),
+        ).fetchone()
+        if (
+            not current
+            or not current["enabled"]
+            or (
+                current["password_hash"] != encoded
+                and not password_matches(password, current["password_hash"])
+            )
+        ):
+            raise HTTPException(401, "The email or password is incorrect.")
+        if password_needs_rehash(current["password_hash"]):
+            conn.execute(
+                f"UPDATE {namespace()}.auth_accounts SET password_hash=%s WHERE username=%s",
+                (password_hash(password), username),
+            )
+        user = current
         conn.execute(
             f"DELETE FROM {namespace()}.auth_sessions WHERE expires_at < now()"
         )

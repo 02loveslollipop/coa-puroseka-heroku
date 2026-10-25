@@ -102,61 +102,60 @@ Every model-generated query passes through the ontology service's [SQL firewall]
 
 ## Setup and deployment
 
-Use Python 3.15 and Node 24. Private configuration goes in an ignored `.env`:
+1. Install Python 3.15, Node 24, the Heroku CLI and Cloudflare CLI (`cf`), then install dependencies:
 
-```bash
-python3 -m venv .venv
-.venv/bin/pip install -r infra/requirements.txt
-cp .env.example .env
-npm --prefix web ci
-.venv/bin/python -m pytest -c tests/pyproject.toml -q
-VITE_API_ORIGIN=https://api.coa.puroseka.02labs.me npm --prefix web run build
-```
+   ```bash
+   python3.15 -m venv .venv
+   .venv/bin/pip install -r infra/requirements.txt
+   npm --prefix web ci
+   ```
 
-Each backend owns `services/<name>/requirements.txt` and `.python-version`; common dependencies are in `shared/requirements.txt`. To install just one backend, use its requirements file. Local startup uses `COA_SERVICE=chat`, `login`, or `ontology` and `python infra/heroku/start.py`. Set its database URL, service URLs/tokens and port as described in [.env.example](.env.example).
+2. Create `.env` from [.env.example](.env.example). Set the database connections, admin credentials, Mistral key/model, service tokens and frontend origin. Record the three existing Eco apps and their URLs in `.deploy/heroku-services.json`.
 
-For a new private dataset import, configure the existing target database, a restored source database, and prepared artifacts using the migration variables in `.env`. Take and restore-check a backup, then import into the new schema:
+3. Authenticate:
 
-```bash
-.venv/bin/python scripts/backup_target.py
-.venv/bin/python scripts/migrate_postgres.py
-.venv/bin/python scripts/provision_demo.py
-# For an existing import: validate and publish the current curated examples.
-.venv/bin/python scripts/update_query_examples.py
-```
+   ```bash
+   heroku login
+   cf auth login
+   ```
 
-The importer refuses an existing destination schema and verifies counts, fingerprints and SQL example parity. The operator database credential stays local. Reprovisioning the demo preserves consumed tokens. Use a disposable local PostgreSQL database for database tests via `LOCAL_TEST_DATABASE_URL`.
+4. For a new dataset/schema, configure the source database and artifact paths in `.env`, then run:
 
-The existing Northflank database uses three dedicated PostgreSQL logins:
+   ```bash
+   .venv/bin/python scripts/backup_target.py
+   .venv/bin/python scripts/migrate_postgres.py
+   .venv/bin/python scripts/provision_demo.py
+   ```
 
-| Service | Permissions within `coa_puroseka` |
-| --- | --- |
-| Ontology | SELECT on the 16 registered dataset tables and `ontology_versions`; no authentication or chat-table access |
-| Login | Read accounts, update password hashes, create/revoke sessions, and maintain login-attempt counters |
-| Chat | Read/update token policies and accounting, and create/update/expire chat jobs and reservations |
+   For an existing import, update curated examples with `.venv/bin/python scripts/update_query_examples.py`.
 
-None can change the dataset, create schema objects, manage database roles, change account roles/enablement, or bypass row security. Chat updates are restricted to the columns used for accounting and job management. The SQL firewall and read-only query transactions remain in place independently of these database grants. PostgreSQL's shared `PUBLIC` privileges still permit provider statistics views and temporary objects; these roles do not own application objects or receive membership in other roles.
+5. Provision the three service database credentials:
 
-After importing a schema, provision roles locally with `MIGRATION_ADMIN_DATABASE_URL` in the ignored `.env`:
+   ```bash
+   .venv/bin/python scripts/provision_service_roles.py
+   ```
 
-```bash
-.venv/bin/python scripts/provision_service_roles.py
-# Switch the three existing Eco apps without rebuilding code or changing models.
-.venv/bin/python scripts/activate_service_roles.py
-```
+   To apply credential changes to running apps, run `.venv/bin/python scripts/activate_service_roles.py`.
 
-Provisioning generates strong passwords and saves separate `ONTOLOGY_DATABASE_URL`, `LOGIN_DATABASE_URL` and `CHAT_DATABASE_URL` values only in `.env`. Reruns reuse them, replace direct table/column grants, and refuse unrelated role names, role memberships or object ownership. Grants apply to named tables, so future tables receive no automatic access. Activation checks existing Eco formations, saves an ignored rollback receipt, changes only database configuration, and checks service health. It preserves accounts, sessions, consumed tokens and data. Normal backend deployment also requires the three separate credentials; it cannot fall back to the shared import account.
+6. Set `LOCAL_TEST_DATABASE_URL` to a disposable local PostgreSQL database, run checks and build the frontend:
 
-Local password storage uses Argon2id (64 MiB, three passes, one lane). Successful logins upgrade legacy scrypt hashes or outdated Argon2id parameters without changing passwords, sessions or token usage. Before upgrading an existing login service, run `.venv/bin/python scripts/enable_password_rehash.py` locally with the operator configuration; it grants only password-hash updates to the login runtime account.
+   ```bash
+   .venv/bin/python -m pytest -c tests/pyproject.toml -q
+   VITE_API_ORIGIN=https://api.coa.puroseka.02labs.me npm --prefix web run build
+   ```
 
-Deployment uses the three existing recorded **Eco web apps only**, without add-ons, workers or schedulers. Authenticate the Heroku CLI and `cf auth login`; local app IDs and URLs are recorded in ignored `.deploy/heroku-services.json`. Publish an audited commit to this repository, then run:
+7. Commit source changes, audit and push `main`:
 
-```bash
-PRIVATE_REFERENCE_ENV=/path/to/private/reference.env .venv/bin/python scripts/audit_publication.py
-.venv/bin/python scripts/deploy_heroku.py
-.venv/bin/python scripts/deploy_frontend.py
-```
+   ```bash
+   PRIVATE_REFERENCE_ENV=/path/to/private/reference.env .venv/bin/python scripts/audit_publication.py
+   git push origin main
+   ```
 
-Backend deployment packages tracked code for each service, adding root build files only inside its temporary Heroku source archive. It verifies one Eco web process and zero add-ons before rebuilding the recorded apps. No database or other resource is provisioned. Frontend deployment uploads only checked static assets. The API is `https://api.coa.puroseka.02labs.me`; frontend CORS accepts the exact chat origin and mutations require CSRF protection.
+8. Deploy the backend and frontend:
 
-Both custom DNS records are DNS-only. Cloudflare Pages manages the frontend certificate; Heroku ACM manages the API certificate. The frontend helper uses the authenticated `cf` session, with the Pages API for asset uploads unsupported by the installed CLI. Deployment receipts remain private.
+   ```bash
+   .venv/bin/python scripts/deploy_heroku.py
+   .venv/bin/python scripts/deploy_frontend.py
+   ```
+
+9. Open [the chat](https://chat.coa.puroseka.02labs.me/) and [admin dashboard](https://chat.coa.puroseka.02labs.me/admin).

@@ -127,6 +127,26 @@ For a new private dataset import, configure the existing target database, a rest
 
 The importer refuses an existing destination schema and verifies counts, fingerprints and SQL example parity. The operator database credential stays local. Reprovisioning the demo preserves consumed tokens. Use a disposable local PostgreSQL database for database tests via `LOCAL_TEST_DATABASE_URL`.
 
+The existing Northflank database uses three dedicated PostgreSQL logins:
+
+| Service | Permissions within `coa_puroseka` |
+| --- | --- |
+| Ontology | SELECT on the 16 registered dataset tables and `ontology_versions`; no authentication or chat-table access |
+| Login | Read accounts, update password hashes, create/revoke sessions, and maintain login-attempt counters |
+| Chat | Read/update token policies and accounting, and create/update/expire chat jobs and reservations |
+
+None can change the dataset, create schema objects, manage database roles, change account roles/enablement, or bypass row security. Chat updates are restricted to the columns used for accounting and job management. The SQL firewall and read-only query transactions remain in place independently of these database grants. PostgreSQL's shared `PUBLIC` privileges still permit provider statistics views and temporary objects; these roles do not own application objects or receive membership in other roles.
+
+After importing a schema, provision roles locally with `MIGRATION_ADMIN_DATABASE_URL` in the ignored `.env`:
+
+```bash
+.venv/bin/python scripts/provision_service_roles.py
+# Switch the three existing Eco apps without rebuilding code or changing models.
+.venv/bin/python scripts/activate_service_roles.py
+```
+
+Provisioning generates strong passwords and saves separate `ONTOLOGY_DATABASE_URL`, `LOGIN_DATABASE_URL` and `CHAT_DATABASE_URL` values only in `.env`. Reruns reuse them, replace direct table/column grants, and refuse unrelated role names, role memberships or object ownership. Grants apply to named tables, so future tables receive no automatic access. Activation checks existing Eco formations, saves an ignored rollback receipt, changes only database configuration, and checks service health. It preserves accounts, sessions, consumed tokens and data. Normal backend deployment also requires the three separate credentials; it cannot fall back to the shared import account.
+
 Local password storage uses Argon2id (64 MiB, three passes, one lane). Successful logins upgrade legacy scrypt hashes or outdated Argon2id parameters without changing passwords, sessions or token usage. Before upgrading an existing login service, run `.venv/bin/python scripts/enable_password_rehash.py` locally with the operator configuration; it grants only password-hash updates to the login runtime account.
 
 Deployment uses the three existing recorded **Eco web apps only**, without add-ons, workers or schedulers. Authenticate the Heroku CLI and `cf auth login`; local app IDs and URLs are recorded in ignored `.deploy/heroku-services.json`. Publish an audited commit to this repository, then run:

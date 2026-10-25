@@ -38,6 +38,7 @@ def save(state):
 def deploy():
     from scripts.audit_publication import audit
     from scripts.service_bundle import upload
+    from scripts.provision_service_roles import service_database
 
     manifest = json.loads((ROOT / "app.json").read_text())
     validate_resources(manifest)
@@ -48,6 +49,10 @@ def deploy():
     if not audit():
         raise ValueError("Publication audit failed")
     cfg = dotenv_values(ROOT / ".env")
+    databases = {
+        service: service_database(cfg, service)
+        for service in ("login", "ontology", "chat")
+    }
     state = json.loads(STATE.read_text())
     if set(state["services"]) != {"login", "ontology", "chat"}:
         raise ValueError("Record the three existing Eco apps before deployment")
@@ -100,10 +105,7 @@ def deploy():
                 "ARTIFACT_STORE": "database",
                 "SEMANTIC_VERSION": "puroseka-1.1.0",
             }
-            database = (
-                cfg.get(service.upper() + "_DATABASE_URL")
-                or cfg["MIGRATION_DATABASE_URL"]
-            )
+            database = databases[service]
             if service == "ontology":
                 base.update(
                     DATABASE_URL=database,
